@@ -44,6 +44,19 @@ src/prisma/            Conexión a la base de datos
 src/config/            Validación de variables de entorno
 ```
 
+## Documentación
+
+| Qué | Dónde |
+| --- | --- |
+| Guía para agentes | [`CLAUDE.md`](CLAUDE.md) |
+| Dominio, modelo de datos y reglas | [`agent/project-overview.md`](agent/project-overview.md) |
+| Estándares de código | [`agent/coding-standards.md`](agent/coding-standards.md) |
+| Flujo de trabajo | [`agent/ai-interaction.md`](agent/ai-interaction.md) |
+| Inscripción pública | [`agent/features/modulo_inscripcion.md`](agent/features/modulo_inscripcion.md) |
+| Sellos y canjes | [`agent/features/modulo_sellos.md`](agent/features/modulo_sellos.md) |
+| Wallet | [`agent/features/modulo_wallet.md`](agent/features/modulo_wallet.md) |
+| Tarjeta y textos de la API | [`design-system.md`](design-system.md) |
+
 ## Próximos pasos
 
 1. Autenticación del backoffice (dueño y cajeros) con JWT y permisos por negocio.
