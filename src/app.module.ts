@@ -6,7 +6,7 @@ import { HealthController } from './health/health.controller.js';
 import { PassesModule } from './passes/passes.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PublicModule } from './public/public.module.js';
-import { WalletController } from './wallet/wallet.controller.js';
+import { WalletModule } from './wallet/wallet.module.js';
 
 @Module({
   imports: [
@@ -15,7 +15,8 @@ import { WalletController } from './wallet/wallet.controller.js';
     AuthModule,
     PublicModule,
     PassesModule,
+    WalletModule,
   ],
-  controllers: [HealthController, WalletController],
+  controllers: [HealthController],
 })
 export class AppModule {}

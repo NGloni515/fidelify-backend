@@ -116,7 +116,8 @@ La tarjeta de un cliente en un programa. Única por `(programId, customerId)`.
 | `balance` | sellos acumulados hacia el próximo premio. Siempre entre `0` y `stampsRequired - 1` |
 | `rewardsReady` | premios ganados y todavía no canjeados |
 | `status` | `ACTIVE` \| `VOIDED`. Una tarjeta `VOIDED` no existe para la caja |
-| `platform`, `googleObjectId` | dónde quedó guardada. Sin uso hasta que exista Wallet |
+| `platform` | dónde quedó guardada. Se marca `APPLE` cuando un iPhone registra la tarjeta |
+| `googleObjectId` | sin uso: el id en Google se deriva del id de la tarjeta |
 
 `balance` y `rewardsReady` son un **saldo cacheado**. El registro de lo que
 pasó es `Transaction`.
@@ -128,7 +129,13 @@ Un renglón por cada cambio de saldo: `type` (`STAMP` | `REDEEM` | `ADJUST`),
 
 Solo se insertan. Nunca se editan ni se borran.
 
-### Coupon, CouponRedemption, Notification, AppleDeviceRegistration
+### AppleDeviceRegistration
+
+Un renglón por cada iPhone que guardó una tarjeta: a dónde mandarle el push
+cuando esa tarjeta cambia. Lo escribe y lo borra el propio Apple Wallet, a
+través del web service (ver `modulo_wallet.md`).
+
+### Coupon, CouponRedemption, Notification
 
 Existen en el schema y **ningún código los usa todavía**.
 
@@ -178,7 +185,7 @@ panel. Nunca de un campo del body.
 | Sesión del equipo | `auth/` | funcional | [`modulo_auth`](features/modulo_auth.md) |
 | Inscripción pública | `public/` | funcional | [`modulo_inscripcion`](features/modulo_inscripcion.md) |
 | Sellos y canjes (caja) | `passes/` | funcional | [`modulo_sellos`](features/modulo_sellos.md) |
-| Wallet | `wallet/` | 501 en los dos endpoints | [`modulo_wallet`](features/modulo_wallet.md) |
+| Wallet | `wallet/` | funcional con credenciales; 501 sin ellas. Sin probar en teléfonos | [`modulo_wallet`](features/modulo_wallet.md) |
 | Salud | `health/` | funcional | — |
 | Infraestructura | `prisma/`, `config/`, `common/` | — | — |
 
@@ -198,8 +205,9 @@ Todos bajo el prefijo `/api`.
 | GET | `/passes/:serial` | caja, con sesión |
 | POST | `/passes/:serial/stamp` | caja, con sesión |
 | POST | `/passes/:serial/redeem` | caja, con sesión |
-| GET | `/wallet/apple/:serial` | el celular del cliente — 501 |
-| GET | `/wallet/google/:serial` | el celular del cliente — 501 |
+| GET | `/wallet/apple/:serial` | el celular del cliente |
+| GET | `/wallet/google/:serial` | el celular del cliente |
+| varios | `/wallet/apple/v1/…` | Apple Wallet, por su cuenta |
 
 ---
 
@@ -210,9 +218,8 @@ modelo, no para implementarlo sin que se pida.
 
 - **Permisos por rol** y gestión del equipo desde el panel: alta de cajeras,
   cambio y recuperación de contraseña.
-- **Tarjeta en la billetera** con el logo, los colores y el nombre del negocio,
-  que se actualiza sola al recibir un sello.
-- **Aviso al celular** cuando el cliente completa la tarjeta.
+- **Subir el logo del negocio**: la tarjeta ya lo muestra, pero hoy tiene que
+  ser una URL pública puesta a mano.
 - **Panel del dueño**: cuántos clientes tiene, quiénes vienen más seguido,
   quiénes dejaron de venir.
 - **Mensajes directos al celular** de los clientes, a todos o a un grupo.
@@ -232,3 +239,5 @@ modelo, no para implementarlo sin que se pida.
 - Lanzar `Error` a secas desde una regla de negocio: llega al cliente como 500.
 - Mandar al cliente un campo que el DTO todavía no declara en producción.
 - Olvidar la extensión `.js` en un import relativo.
+- Dejar que un servicio externo (Google, Apple) haga fallar un sello que ya se
+  guardó.

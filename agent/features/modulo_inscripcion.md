@@ -85,7 +85,8 @@ En una sola transacción:
 ```
 
 Las dos URLs son **rutas relativas de esta API**; la página les antepone el
-host. Hoy las dos responden 501 (ver `modulo_wallet.md`).
+host. Cada una responde 501 mientras su plataforma no tenga credenciales (ver
+`modulo_wallet.md`).
 
 ---
 

@@ -26,6 +26,13 @@ El seed crea el equipo con los correos y la contraseña de `.env`
 Si el puerto 5432 ya lo usa otro Postgres, cambia `DB_PORT` y el puerto de
 `DATABASE_URL` en `.env`.
 
+## Wallet
+
+Sin credenciales, los enlaces de Wallet responden 501 y todo lo demás funciona.
+Para activarlas, deja los archivos en `secrets/` (ignorado por git) y descomenta
+las variables de Wallet en `.env`. Detalle en
+[`agent/features/modulo_wallet.md`](agent/features/modulo_wallet.md).
+
 ## Alta de un negocio
 
 ```bash
@@ -53,8 +60,9 @@ mostrador: no se cambia después. Corre contra la base de `DATABASE_URL`.
 | GET | `/api/passes/:serial` | Consulta un pase (caja, con sesión) |
 | POST | `/api/passes/:serial/stamp` | Suma sellos `{ "count": 1 }` (caja, con sesión) |
 | POST | `/api/passes/:serial/redeem` | Canjea un premio (caja, con sesión) |
-| GET | `/api/wallet/apple/:serial` | Pase de Apple Wallet (pendiente) |
-| GET | `/api/wallet/google/:serial` | Link de Google Wallet (pendiente) |
+| GET | `/api/wallet/apple/:serial` | Tarjeta para Apple Wallet (`.pkpass`) |
+| GET | `/api/wallet/google/:serial` | Redirige al enlace de guardado de Google Wallet |
+| — | `/api/wallet/apple/v1/…` | Web service que llama Apple Wallet para actualizar tarjetas |
 
 ## Estructura
 
@@ -63,7 +71,8 @@ prisma/schema.prisma   Modelo de datos (negocios, clientes, pases, movimientos, 
 src/auth/              Login del equipo, sesión y guard
 src/public/            Inscripción desde la web pública
 src/passes/            Sellos y canjes (stamp-rules.ts tiene la lógica pura + tests)
-src/wallet/            Apple / Google Wallet (por implementar)
+src/wallet/            Apple / Google Wallet: tarjeta y actualización tras cada sello
+secrets/               Certificados y llaves de Wallet en local (ignorado por git)
 src/prisma/            Conexión a la base de datos
 src/config/            Validación de variables de entorno
 ```
@@ -85,6 +94,5 @@ src/config/            Validación de variables de entorno
 ## Próximos pasos
 
 1. Permisos por rol y gestión del equipo (alta de cajeros, contraseñas).
-2. Apple Wallet: cuenta de Apple Developer, Pass Type ID, certificado y firma con `passkit-generator`; web service de actualizaciones.
-3. Google Wallet: cuenta de issuer y cuenta de servicio en Google Cloud.
-4. Endpoints del backoffice: programa, clientes, cupones y notificaciones.
+2. Wallet: cargar las credenciales reales y probar en un iPhone y un Android.
+3. Endpoints del backoffice: programa, clientes, cupones y notificaciones.

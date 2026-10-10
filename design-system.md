@@ -7,7 +7,7 @@ El backend no tiene UI, pero **sí produce cosas que el usuario ve**:
 
 | Superficie | Dónde | Estado |
 |---|---|---|
-| La tarjeta en la billetera del cliente | `src/wallet/` | sin implementar |
+| La tarjeta en la billetera del cliente | `src/wallet/` | en uso; sin probar en teléfonos |
 | Los mensajes de error y el texto de consentimiento | todo `src/` | en uso |
 
 ---
@@ -37,6 +37,12 @@ Reglas:
 - Se guardan como hex `#RRGGBB`. Hoy **ningún DTO los valida**: ni el formato ni
   que el texto se lea sobre el fondo. Lo segundo está sin decidir
   ([`../design-system.md`](../design-system.md) §7).
+- Si un color falta o no es un hex válido, se usa el de respaldo **solo para
+  ese color** (`parseBrandColors`).
+- **La tarjeta lleva el nombre del cliente y nada más**: ni teléfono ni correo.
+- Fidelify aparece una vez, al reverso: "Tarjeta digital por Fidelify".
+- Los textos de la tarjeta se escriben una sola vez, en
+  `src/wallet/wallet-pass.ts`, y las dos plataformas dicen lo mismo.
 - `Program.design` es un Json sin forma definida. Antes de leerlo o escribirlo
   se le define la forma y se documenta aquí.
 
