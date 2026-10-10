@@ -5,6 +5,7 @@ import {
   IsString,
   Max,
   Min,
+  MinLength,
   validateSync,
 } from 'class-validator';
 
@@ -27,6 +28,24 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   PUBLIC_WEB_URL?: string;
+
+  @IsString()
+  @MinLength(32)
+  JWT_ACCESS_SECRET: string;
+
+  @IsString()
+  @MinLength(32)
+  JWT_REFRESH_SECRET: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(60)
+  JWT_ACCESS_TTL_SECONDS?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(60)
+  JWT_REFRESH_TTL_SECONDS?: number;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

@@ -55,8 +55,9 @@ la función y guarda. El modelo es `src/passes/stamp-rules.ts`.
 ## Multi-negocio
 
 - **Todo método de servicio que lee o escribe datos de un negocio recibe de qué
-  negocio se trata y filtra por él.** El `businessId` sale de la sesión o del
-  `slug` de la ruta; nunca del body.
+  negocio se trata y filtra por él.** En las rutas del panel recibe el
+  `StaffSession` (`@CurrentStaff()`) y usa `staff.business.id`; en las públicas,
+  el `slug` de la ruta. Nunca un `businessId` del body.
 - Se acota por la columna más cercana. Si el modelo no tiene `businessId`
   propio, se filtra por el padre: `Pass` → `program: { businessId }`,
   `Transaction` → `pass: { program: { businessId } }`.
@@ -116,9 +117,15 @@ Dos capas, las dos con **Vitest**:
 
 - **Unitarios** — `*.spec.ts` junto al código que prueban, en `src/`. Sin base
   de datos. `npm test`.
-- **E2E** — `test/*.e2e-spec.ts`, con Supertest sobre la app de Nest completa.
-  `npm run test:e2e`. La app de test no pasa por `main.ts`: no tiene el prefijo
-  `/api` ni el `ValidationPipe`, salvo que el test los registre.
+- **E2E** — `test/*.e2e-spec.ts`, con Supertest sobre la app de Nest completa y
+  una base Postgres real (`fidelify_test`). `npm run test:e2e`.
+  - La app se arma con `createTestApp()` (`test/helpers/app.ts`), que aplica
+    `configureApp()`: el mismo prefijo `/api` y el mismo `ValidationPipe` que
+    producción.
+  - Cada spec llama a `resetDatabase()` en su `beforeEach` y crea lo que
+    necesita con `createBusiness()` (`test/helpers/fixtures.ts`).
+  - **Toda ruta que toca datos de un negocio lleva un test con dos negocios**,
+    que compruebe que el segundo no se ve ni se modifica.
 
 ## Calidad
 
@@ -142,9 +149,7 @@ se abren PRs masivos de limpieza.
 
 | Qué | Dónde |
 |---|---|
-| Comentarios en español y docstrings que narran | todo `src/` y `prisma/` |
-| `StampDto` definido dentro del controlador | `src/passes/passes.controller.ts` |
-| `ConcurrentUpdateError` extiende `Error`: agotar los reintentos da 500 | `src/passes/passes.service.ts` |
+| Comentarios en español y docstrings que narran | `src/public/`, `src/wallet/`, `src/common/`, `src/config/`, `src/passes/stamp-rules.ts`, `prisma/schema.prisma` |
 | `Branch`, `StaffUser`, `Customer` y `Coupon` se editan y no tienen `updatedAt` | `prisma/schema.prisma` |
 | El comentario de `Transaction.amount` dice "-8 al canjear"; el código guarda `-1` | `prisma/schema.prisma` |
 | `name` y `email` responden con el mensaje en inglés de `class-validator` | `src/public/join.dto.ts` |

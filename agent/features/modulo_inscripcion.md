@@ -98,8 +98,8 @@ teléfono **no crea nada**: devuelve la tarjeta que ya tenía, con su saldo. Es 
 que permite recuperar la tarjeta al cambiar de celular.
 
 La contracara: **quien conoce el teléfono de alguien obtiene el código de su
-tarjeta.** Por eso el código solo no puede bastar para sumar sellos — la caja
-necesita autenticación.
+tarjeta.** Por eso el código solo no basta para sumar sellos: la caja exige
+sesión.
 
 ### Qué se actualiza al reinscribirse
 

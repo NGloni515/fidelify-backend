@@ -16,10 +16,12 @@ quiénes son sus clientes, cada cuánto vuelven y cómo escribirles.
 |---|---|---|---|
 | **`fidelify-backend`** (este) | lógica de negocio, datos y cálculos | — | — |
 | `fidelify-web` | página pública de inscripción | el cliente final, anónimo, en su celular | ninguna: el `slug` de la URL |
-| `fidelify-backoffice` | panel del negocio: caja, clientes, tarjeta, cupones, mensajes, equipo | dueño y cajeros | `StaffUser` (todavía sin login) |
+| `fidelify-backoffice` | panel del negocio: caja, clientes, tarjeta, cupones, mensajes, equipo | dueño y cajeros | `StaffUser`, con sesión |
 
 No existe un panel interno de Fidelify. Un negocio se da de alta con
-`prisma/seed.ts` como plantilla.
+`npm run business:create`, que crea el `Business`, su local, su programa y su
+dueño con una contraseña temporal. Nunca pisa un negocio existente: si el
+`slug` o el correo ya están tomados, se niega.
 
 ---
 
@@ -164,8 +166,8 @@ que el cliente aceptó, servido por esta misma API.
 
 Un dato de un negocio nunca se le muestra a otro. Lo ajeno se responde 404.
 
-Hoy solo la inscripción cumple esto, porque entra por `slug`. La caja todavía
-no puede: sin login no hay negocio contra el cual acotar.
+El negocio sale del `slug` en las rutas públicas y de la sesión en las del
+panel. Nunca de un campo del body.
 
 ---
 
@@ -173,8 +175,9 @@ no puede: sin login no hay negocio contra el cual acotar.
 
 | Dominio | `src/` | Estado | Doc |
 |---|---|---|---|
+| Sesión del equipo | `auth/` | funcional | [`modulo_auth`](features/modulo_auth.md) |
 | Inscripción pública | `public/` | funcional | [`modulo_inscripcion`](features/modulo_inscripcion.md) |
-| Sellos y canjes (caja) | `passes/` | funcional, **sin autenticación** | [`modulo_sellos`](features/modulo_sellos.md) |
+| Sellos y canjes (caja) | `passes/` | funcional | [`modulo_sellos`](features/modulo_sellos.md) |
 | Wallet | `wallet/` | 501 en los dos endpoints | [`modulo_wallet`](features/modulo_wallet.md) |
 | Salud | `health/` | funcional | — |
 | Infraestructura | `prisma/`, `config/`, `common/` | — | — |
@@ -186,11 +189,15 @@ Todos bajo el prefijo `/api`.
 | Método | Ruta | Quién la llama |
 |---|---|---|
 | GET | `/health` | monitoreo |
+| POST | `/auth/login` | panel |
+| POST | `/auth/refresh` | panel |
+| POST | `/auth/logout` | panel |
+| GET | `/auth/me` | panel, con sesión |
 | GET | `/public/businesses/:slug` | página pública |
 | POST | `/public/businesses/:slug/join` | página pública |
-| GET | `/passes/:serial` | caja |
-| POST | `/passes/:serial/stamp` | caja |
-| POST | `/passes/:serial/redeem` | caja |
+| GET | `/passes/:serial` | caja, con sesión |
+| POST | `/passes/:serial/stamp` | caja, con sesión |
+| POST | `/passes/:serial/redeem` | caja, con sesión |
 | GET | `/wallet/apple/:serial` | el celular del cliente — 501 |
 | GET | `/wallet/google/:serial` | el celular del cliente — 501 |
 
@@ -201,7 +208,8 @@ Todos bajo el prefijo `/api`.
 Es lo que se le ofrece a un negocio. Sirve para saber hacia dónde crece el
 modelo, no para implementarlo sin que se pida.
 
-- **Login del equipo** (dueño y cajeras) y permisos por negocio.
+- **Permisos por rol** y gestión del equipo desde el panel: alta de cajeras,
+  cambio y recuperación de contraseña.
 - **Tarjeta en la billetera** con el logo, los colores y el nombre del negocio,
   que se actualiza sola al recibir un sello.
 - **Aviso al celular** cuando el cliente completa la tarjeta.

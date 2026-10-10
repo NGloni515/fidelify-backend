@@ -1,41 +1,29 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { StaffSession } from '../auth/staff-session.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { applyRedeem, applyStamp } from './stamp-rules.js';
 
 class ConcurrentUpdateError extends Error {}
 
+const MAX_ATTEMPTS = 3;
+
 @Injectable()
 export class PassesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findBySerial(serialNumber: string) {
-    const pass = await this.prisma.pass.findUnique({
-      where: { serialNumber },
-      include: {
-        customer: { select: { name: true, phone: true } },
-        program: {
-          select: {
-            name: true,
-            stampsRequired: true,
-            rewardText: true,
-            businessId: true,
-          },
-        },
-      },
-    });
-    if (!pass || pass.status !== 'ACTIVE')
-      throw new NotFoundException('Tarjeta no encontrada');
+  async findForCashier(serialNumber: string, staff: StaffSession) {
+    const { id: _id, ...pass } = await this.findOwned(serialNumber, staff);
     return pass;
   }
 
-  /** La cajera escanea el QR y suma sellos. */
-  async stamp(serialNumber: string, count = 1, staffId?: string) {
+  async stamp(serialNumber: string, staff: StaffSession, count = 1) {
     return this.withRetry(async () => {
-      const pass = await this.findBySerial(serialNumber);
+      const pass = await this.findOwned(serialNumber, staff);
       const next = applyStamp(
         pass.balance,
         pass.rewardsReady,
@@ -45,11 +33,11 @@ export class PassesService {
       await this.commit(
         pass,
         { balance: next.balance, rewardsReady: next.rewardsReady },
-        { type: 'STAMP', amount: count, staffId },
+        { type: 'STAMP', amount: count },
+        staff,
       );
-      // TODO: avisar a Apple/Google Wallet para que el pase se actualice en el celular.
       return {
-        serialNumber,
+        serialNumber: pass.serialNumber,
         balance: next.balance,
         stampsRequired: pass.program.stampsRequired,
         rewardsReady: next.rewardsReady,
@@ -58,23 +46,18 @@ export class PassesService {
     });
   }
 
-  /** Canjea un premio ganado. */
-  async redeem(serialNumber: string, staffId?: string) {
+  async redeem(serialNumber: string, staff: StaffSession) {
     return this.withRetry(async () => {
-      const pass = await this.findBySerial(serialNumber);
+      const pass = await this.findOwned(serialNumber, staff);
       let next: { rewardsReady: number };
       try {
         next = applyRedeem(pass.rewardsReady);
       } catch (e) {
         throw new BadRequestException((e as Error).message);
       }
-      await this.commit(pass, next, {
-        type: 'REDEEM',
-        amount: -1,
-        staffId,
-      });
+      await this.commit(pass, next, { type: 'REDEEM', amount: -1 }, staff);
       return {
-        serialNumber,
+        serialNumber: pass.serialNumber,
         balance: pass.balance,
         stampsRequired: pass.program.stampsRequired,
         rewardsReady: next.rewardsReady,
@@ -82,14 +65,34 @@ export class PassesService {
     });
   }
 
-  /**
-   * Guarda el nuevo saldo solo si nadie lo cambió desde que lo leímos
-   * (bloqueo optimista). Así dos escaneos simultáneos no se pisan.
-   */
+  private async findOwned(serialNumber: string, staff: StaffSession) {
+    const pass = await this.prisma.pass.findFirst({
+      where: {
+        serialNumber,
+        status: 'ACTIVE',
+        program: { businessId: staff.business.id },
+      },
+      select: {
+        id: true,
+        serialNumber: true,
+        balance: true,
+        rewardsReady: true,
+        customer: { select: { name: true, phone: true } },
+        program: {
+          select: { name: true, stampsRequired: true, rewardText: true },
+        },
+      },
+    });
+    if (!pass) throw new NotFoundException('Tarjeta no encontrada');
+    return pass;
+  }
+
+  // Optimistic lock: the write only lands if the balance is still the one read.
   private async commit(
     pass: { id: string; balance: number; rewardsReady: number },
     data: { balance?: number; rewardsReady: number },
-    tx: { type: 'STAMP' | 'REDEEM'; amount: number; staffId?: string },
+    movement: { type: 'STAMP' | 'REDEEM'; amount: number },
+    staff: StaffSession,
   ) {
     await this.prisma.$transaction(async (db) => {
       const { count } = await db.pass.updateMany({
@@ -101,16 +104,27 @@ export class PassesService {
         data,
       });
       if (count === 0) throw new ConcurrentUpdateError();
-      await db.transaction.create({ data: { passId: pass.id, ...tx } });
+      await db.transaction.create({
+        data: {
+          passId: pass.id,
+          staffId: staff.id,
+          branchId: staff.branchId,
+          ...movement,
+        },
+      });
     });
   }
 
-  private async withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
-    for (let i = 1; ; i++) {
+  private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
       try {
         return await fn();
       } catch (e) {
-        if (!(e instanceof ConcurrentUpdateError) || i >= attempts) throw e;
+        if (!(e instanceof ConcurrentUpdateError)) throw e;
+        if (attempt >= MAX_ATTEMPTS)
+          throw new ConflictException(
+            'Alguien más está atendiendo esta tarjeta. Vuelve a intentarlo.',
+          );
       }
     }
   }

@@ -36,6 +36,8 @@ npm run start:dev
 
 - Inscribirse: `POST /api/public/businesses/heladeria-demo/join`. Repetirlo con
   el mismo teléfono tiene que devolver el **mismo** `serialNumber`.
+- Las rutas de caja piden sesión: `POST /api/auth/login` con el equipo del seed
+  (`.env.example`) y el `accessToken` como `Bearer`. Sin él, 401.
 - Dar sellos hasta completar la tarjeta: el último tiene que venir con
   `rewardEarned: true`, `balance: 0` y `rewardsReady: 1`.
 - Canjear dos veces seguidas: la segunda tiene que ser un 400 con el mensaje en
