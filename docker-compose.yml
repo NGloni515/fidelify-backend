@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: fidelify
       POSTGRES_DB: fidelify
     ports:
-      - '5432:5432'
+      - '${DB_PORT:-5432}:5432'
     volumes:
       - fidelify-db:/var/lib/postgresql/data
 

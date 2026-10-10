@@ -1,7 +1,6 @@
-// Datos de ejemplo para desarrollo: una heladería con su programa de sellos.
-// Ejecutar con: npm run db:seed
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { hashPassword } from '../src/auth/password.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 
 const prisma = new PrismaClient({
@@ -24,7 +23,36 @@ const business = await prisma.business.upsert({
       },
     },
   },
+  include: { branches: { take: 1 } },
 });
-
 console.log(`Negocio listo: ${business.name} → /join/${business.slug}`);
+
+const password = process.env.SEED_STAFF_PASSWORD;
+const staff = [
+  { email: process.env.SEED_OWNER_EMAIL, name: 'Dueña Demo', role: 'OWNER' },
+  { email: process.env.SEED_CASHIER_EMAIL, name: 'Caja Demo', role: 'CASHIER' },
+] as const;
+
+if (password) {
+  const passwordHash = await hashPassword(password);
+  for (const { email, name, role } of staff) {
+    if (!email) continue;
+    await prisma.staffUser.upsert({
+      where: { email: email.toLowerCase() },
+      update: { passwordHash, active: true },
+      create: {
+        businessId: business.id,
+        branchId: business.branches[0]?.id,
+        email: email.toLowerCase(),
+        name,
+        role,
+        passwordHash,
+      },
+    });
+    console.log(`Equipo listo: ${email} (${role})`);
+  }
+} else {
+  console.log('Sin SEED_STAFF_PASSWORD: no se creó equipo.');
+}
+
 await prisma.$disconnect();

@@ -13,8 +13,10 @@ canjear un premio. Su contraparte es
 | `src/passes/stamp-rules.ts` | Las reglas, como funciones puras |
 | `src/passes/stamp-rules.spec.ts` | Sus tests |
 | `src/passes/passes.service.ts` | Lee la tarjeta, aplica la regla, guarda saldo y movimiento |
-| `src/passes/passes.controller.ts` | Rutas y `StampDto` |
+| `src/passes/passes.controller.ts` | Rutas, todas detrás de `StaffAuthGuard` |
+| `src/passes/dto/stamp.dto.ts` | Validación de `count` |
 | `src/common/serial.ts` | Genera `serialNumber` y `authToken` |
+| `test/passes.e2e-spec.ts` | Sesión, aislamiento entre negocios, concurrencia |
 
 ---
 
@@ -33,6 +35,15 @@ pendiente y seguir juntando sellos para el siguiente.
 ---
 
 ## Reglas
+
+### Quién puede
+
+Las tres rutas exigen sesión (ver `modulo_auth.md`) y **solo alcanzan tarjetas
+del negocio de quien pregunta**. La tarjeta de otro negocio responde 404
+"Tarjeta no encontrada", exactamente igual que un código que no existe: quien
+escanea no se entera de que ese código es válido en otro lado.
+
+Hoy dueño y cajera pueden lo mismo.
 
 ### Dar sellos — `applyStamp(balance, rewardsReady, stampsRequired, count)`
 
@@ -61,12 +72,12 @@ Descuenta **un** premio. No toca `balance`. Si `rewardsReady` es 0, falla con
 
 ### Límites del request
 
-`count` es opcional (1 por defecto), entero, entre 1 y 20.
+`count` es opcional (1 por defecto, también si no viene body), entero, entre 1
+y 20.
 
 ### Tarjeta anulada
 
-Una tarjeta con `status = VOIDED` se trata como inexistente: 404 "Tarjeta no
-encontrada", igual que un código que no existe.
+Una tarjeta con `status = VOIDED` se trata como inexistente: 404.
 
 ---
 
@@ -83,8 +94,8 @@ que actualiza el saldo:
 `amount` no está en la misma unidad en los dos casos: en `STAMP` son sellos, en
 `REDEEM` son premios.
 
-`staffId` y `branchId` quedan en `null`: el servicio acepta un `staffId`, pero
-no hay sesión de la cual sacarlo.
+Cada movimiento guarda **quién lo hizo** (`staffId`) y **en qué local**
+(`branchId`, el del usuario que tiene la sesión).
 
 ---
 
@@ -102,18 +113,30 @@ al otro, `commit()` hace un **bloqueo optimista**:
 La lectura va **dentro** del reintento. Reintentar solo la escritura guardaría
 un saldo calculado sobre datos viejos.
 
-Si los 3 intentos fallan, el error sube como un 500.
+Si los 3 intentos fallan, responde 409 "Alguien más está atendiendo esta
+tarjeta. Vuelve a intentarlo.".
 
 ---
 
 ## Contrato
 
-Todas las rutas bajo `/api`. Los `POST` responden 201.
+Todas las rutas bajo `/api`, con `Authorization: Bearer <access token>`. Los
+`POST` responden 201.
 
 ### `GET /passes/:serial`
 
-Devuelve la fila del `Pass` con `customer { name, phone }` y
-`program { name, stampsRequired, rewardText, businessId }`.
+Solo lo que la pantalla de caja muestra. **Ningún id interno y nunca
+`authToken`.**
+
+```json
+{
+  "serialNumber": "FL-…",
+  "balance": 3,
+  "rewardsReady": 0,
+  "customer": { "name": "…", "phone": "…" },
+  "program": { "name": "…", "stampsRequired": 8, "rewardText": "1 helado gratis" }
+}
+```
 
 ### `POST /passes/:serial/stamp`
 
@@ -137,9 +160,11 @@ Sin body. Misma respuesta, sin `rewardEarned`.
 
 | Caso | Respuesta |
 |---|---|
-| Código inexistente o tarjeta anulada | 404 "Tarjeta no encontrada" |
+| Sin sesión, o sesión vencida | 401 |
+| Código inexistente, tarjeta anulada o tarjeta de otro negocio | 404 "Tarjeta no encontrada" |
 | Canjear sin premios | 400 "No hay premios disponibles para canjear" |
-| `count` fuera de 1–20 o no entero | 400 |
+| `count` fuera de 1–20 o no entero | 400, con el motivo en español |
+| Tres choques seguidos con otra caja | 409 |
 
 ---
 
@@ -156,9 +181,6 @@ texto escaneado directamente como serial.
 
 ## Sin resolver
 
-- **Autenticación.** Las tres rutas están abiertas. No se sabe quién dio el
-  sello ni se valida que la tarjeta sea del negocio que la escanea.
-- **`GET /passes/:serial` expone `authToken`**, porque devuelve la fila entera.
 - **Cambiar `stampsRequired` con tarjetas en curso.** `balance` se calcula con
   el valor vigente al momento de cada sello. Si el negocio pasa de 8 a 6, una
   tarjeta con 7 sellos queda con un `balance` mayor que el nuevo tope hasta su
@@ -166,3 +188,4 @@ texto escaneado directamente como serial.
 - **Avisar a la billetera.** Tras un sello, la tarjeta en el celular no se
   entera. Depende de `modulo_wallet.md`.
 - **`ADJUST`.** El tipo existe; ningún endpoint lo usa.
+- **Deshacer.** Un sello dado por error no tiene vuelta atrás.

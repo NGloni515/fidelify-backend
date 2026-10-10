@@ -20,13 +20,8 @@ tiene que combinar componentes termina combinándolos distinto. Ver
 
 Lo que hoy impide desplegar esto de cara a un negocio real:
 
-- **`/api/passes/*` no tiene autenticación.** Cualquiera con el código de una
-  tarjeta puede darle sellos o canjear su premio. Falta el login de `StaffUser`
-  y validar que la tarjeta sea del negocio de quien escanea.
-- **`GET /api/passes/:serial` devuelve la fila completa del `Pass`, incluido
-  `authToken`**, que es un secreto.
 - **`/api/wallet/*` responde 501.** Ver `agent/features/modulo_wallet.md`.
-- **No hay migraciones commiteadas**: `prisma/migrations/` no existe todavía.
+- **El login no limita los intentos.** Ver `agent/features/modulo_auth.md`.
 
 ## Design system
 
@@ -43,7 +38,8 @@ carpeta que agrupa los repos (`../design-system.md`).
 - @agent/ai-interaction.md
 
 Detalle por módulo en `agent/features/`:
-`modulo_inscripcion.md`, `modulo_sellos.md`, `modulo_wallet.md`.
+`modulo_auth.md`, `modulo_inscripcion.md`, `modulo_sellos.md`,
+`modulo_wallet.md`.
 
 ## Comandos
 
@@ -57,12 +53,14 @@ npm run format         # prettier
 
 npm test               # unit (Vitest)
 npm run test:watch
-npm run test:e2e       # e2e (Vitest + Supertest)
+npm run test:e2e       # e2e (Vitest + Supertest, contra Postgres)
 
 npm run db:up          # Postgres 17 en Docker
 npm run db:migrate     # prisma migrate dev
-npm run db:seed        # crea "Heladería Demo"
+npm run db:seed        # crea "Heladería Demo" con una dueña y una cajera
 npm run db:studio
+
+npm run business:create -- --name … --slug …   # da de alta un negocio real
 ```
 
 Un solo archivo de test: `npx vitest run src/passes/stamp-rules.spec.ts`
@@ -95,10 +93,15 @@ npm run test:e2e
 - **La URL de la base no está en `schema.prisma`.** La app se conecta con el
   adaptador `@prisma/adapter-pg` en `src/prisma/prisma.service.ts`, y la CLI de
   Prisma la toma de `prisma.config.ts`.
-- **El e2e no usa el prefijo `/api`.** El prefijo se pone en `src/main.ts`, y los
-  tests arman la app sin pasar por ahí: se pide `/health`, no `/api/health`.
-- El e2e de hoy necesita `DATABASE_URL` definida, pero **no** la base arriba:
-  Prisma no conecta hasta la primera consulta.
+- **El e2e necesita Postgres arriba** (`npm run db:up`). Crea por su cuenta la
+  base `fidelify_test` al lado de la de desarrollo, le aplica las migraciones y
+  **trunca todas las tablas antes de cada test**. Se niega a correr contra una
+  base cuyo nombre no termine en `_test`.
+- **Si el puerto 5432 está ocupado** por el Postgres de otro proyecto, se cambia
+  `DB_PORT` y el puerto de `DATABASE_URL` en `.env`. No se toca
+  `docker-compose.yml`.
+- El prefijo `/api`, el `ValidationPipe` y el CORS se configuran en
+  `src/app.setup.ts`, que usan tanto `main.ts` como los tests.
 
 ## Arquitectura
 
@@ -108,12 +111,17 @@ npm run test:e2e
 | Datos | Prisma 7 + `@prisma/adapter-pg`, PostgreSQL |
 | Validación | `class-validator` + `ValidationPipe` global (`whitelist`, `forbidNonWhitelisted`, `transform`) |
 | Config | `@nestjs/config`, validada al arrancar en `src/config/env.validation.ts` |
+| Sesión | JWT con `@nestjs/jwt`. Refresh en cookie `HttpOnly`, con las cookies nativas de Nest 12 (sin `cookie-parser`) |
 | Tests | Vitest; Supertest para e2e |
 | Lint / formato | oxlint / Prettier |
 
 ```
 prisma/schema.prisma   modelo de datos
-prisma/seed.ts         negocio de ejemplo; plantilla para dar de alta uno real
+prisma/migrations/     migraciones; se commitean
+prisma/seed.ts         negocio de ejemplo con su equipo, para desarrollo
+prisma/create-business.ts  alta de un negocio real con su dueño
+src/app.setup.ts       prefijo /api, ValidationPipe y CORS
+src/auth/              login del equipo, sesión y guard
 src/public/            inscripción desde la página pública
 src/passes/            sellos y canjes (caja)
 src/wallet/            Apple / Google Wallet — sin implementar
@@ -127,7 +135,12 @@ src/common/            generación de serial y token
 | Variable | Para |
 |---|---|
 | `DATABASE_URL` | conexión a PostgreSQL. **Obligatoria**, también al instalar |
+| `DB_PORT` | puerto del Postgres de Docker en la máquina. Solo lo lee `docker-compose.yml` |
 | `PORT` | puerto (3000 por defecto) |
+| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | firma de los tokens. **Obligatorias**, mínimo 32 caracteres, distintas entre sí |
+| `JWT_ACCESS_TTL_SECONDS`, `JWT_REFRESH_TTL_SECONDS` | duración de cada token (900 y 2592000 por defecto) |
+| `NODE_ENV` | con `production` la cookie de sesión sale `Secure` |
+| `SEED_OWNER_EMAIL`, `SEED_CASHIER_EMAIL`, `SEED_STAFF_PASSWORD` | equipo que crea el seed. Solo desarrollo |
 | `CORS_ORIGINS` | orígenes permitidos, separados por coma. Por defecto `5173` (panel) y `5174` (página pública) |
 | `PUBLIC_WEB_URL` | URL de la página pública. Declarada y validada, todavía sin uso |
 
