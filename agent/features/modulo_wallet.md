@@ -3,10 +3,11 @@
 Entregar la tarjeta a la billetera del celular —Apple Wallet y Google Wallet— y
 mantenerla al día después de cada sello.
 
-> **Probado solo con llaves de prueba.** Los tests firman con un certificado
-> autofirmado y una llave RSA generada al vuelo, y simulan a Google y a APNs.
-> Ninguna tarjeta se ha instalado todavía en un teléfono real: la primera vez
-> que haya credenciales verdaderas se prueba en un iPhone y en un Android.
+> **Los tests usan llaves de prueba**: firman con un certificado autofirmado y
+> una llave RSA generada al vuelo, y simulan a Google y a APNs. Con el
+> certificado real de Apple la tarjeta se genera y su firma valida contra la
+> raíz de Apple. Falta lo que solo se ve en un teléfono: instalarla, y que se
+> actualice sola tras un sello.
 
 ---
 
@@ -186,6 +187,34 @@ Los secretos aceptan tres formas (`readSecret`): **la ruta de un archivo**, el
 valor tal cual, o su **base64**. En local se usan rutas dentro de `secrets/`,
 que está en `.gitignore`. En un hosting se usa base64, porque los paneles de
 variables suelen romper los saltos de línea de un PEM.
+
+---
+
+## Instalar o renovar el certificado de Apple
+
+El certificado del Pass Type ID **vence cada 13 meses**. Se renueva creando uno
+nuevo para el mismo Pass Type ID; las tarjetas ya instaladas siguen sirviendo.
+
+```bash
+# 1. Llave privada y solicitud. La llave nunca sale de secrets/.
+openssl genrsa -out secrets/apple/pass.key 2048
+openssl req -new -key secrets/apple/pass.key -out secrets/apple/pass.csr \
+  -subj "/CN=Fidelify Wallet/O=Fidelify/C=EC"
+
+# 2. Subir pass.csr en developer.apple.com (Certificates → + → Pass Type ID
+#    Certificate) y guardar el pass.cer que devuelve en secrets/apple/.
+
+# 3. Pasarlo a PEM, igual que el intermedio WWDR G4 de apple.com/certificateauthority.
+openssl x509 -inform DER -in secrets/apple/pass.cer -out secrets/apple/pass.pem
+openssl x509 -inform DER -in secrets/apple/AppleWWDRCAG4.cer -out secrets/apple/wwdr.pem
+
+# 4. Comprobar que el intermedio firma el certificado. Tiene que decir OK.
+openssl verify -CAfile secrets/apple/wwdr.pem -partial_chain secrets/apple/pass.pem
+```
+
+El intermedio tiene que ser de la **misma generación** que dice el emisor del
+certificado (`OU=G4`). Con otro, la tarjeta se genera igual y el teléfono la
+rechaza sin dar explicación.
 
 ---
 

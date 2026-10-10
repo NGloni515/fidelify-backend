@@ -104,6 +104,9 @@ npm run test:e2e
   `docker-compose.yml`.
 - El prefijo `/api`, el `ValidationPipe` y el CORS se configuran en
   `src/app.setup.ts`, que usan tanto `main.ts` como los tests.
+- **Los e2e ignoran las credenciales de Wallet del `.env`** a propósito, y usan
+  llaves que generan ellos mismos. Tener Wallet configurado en local no cambia
+  ningún test.
 
 ## Arquitectura
 
