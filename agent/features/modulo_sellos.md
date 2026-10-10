@@ -97,6 +97,11 @@ que actualiza el saldo:
 Cada movimiento guarda **quién lo hizo** (`staffId`) y **en qué local**
 (`branchId`, el del usuario que tiene la sesión).
 
+Después de guardar se avisa a la billetera del cliente para que la tarjeta en
+su celular muestre el saldo nuevo (ver `modulo_wallet.md`). Ese aviso nunca hace
+fallar el sello: si Google o Apple no responden, la respuesta a la caja es la
+misma.
+
 ---
 
 ## Concurrencia
@@ -185,7 +190,5 @@ texto escaneado directamente como serial.
   el valor vigente al momento de cada sello. Si el negocio pasa de 8 a 6, una
   tarjeta con 7 sellos queda con un `balance` mayor que el nuevo tope hasta su
   próximo sello, y el saldo deja de poder reconstruirse desde los movimientos.
-- **Avisar a la billetera.** Tras un sello, la tarjeta en el celular no se
-  entera. Depende de `modulo_wallet.md`.
 - **`ADJUST`.** El tipo existe; ningún endpoint lo usa.
 - **Deshacer.** Un sello dado por error no tiene vuelta atrás.

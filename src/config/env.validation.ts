@@ -46,6 +46,43 @@ class EnvironmentVariables {
   @IsInt()
   @Min(60)
   JWT_REFRESH_TTL_SECONDS?: number;
+
+  // Public HTTPS URL of this API. Apple Wallet calls it to refresh the cards.
+  @IsOptional()
+  @IsString()
+  PUBLIC_API_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  GOOGLE_WALLET_ISSUER_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  GOOGLE_WALLET_SERVICE_ACCOUNT?: string;
+
+  @IsOptional()
+  @IsString()
+  APPLE_PASS_TYPE_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  APPLE_TEAM_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  APPLE_PASS_CERT?: string;
+
+  @IsOptional()
+  @IsString()
+  APPLE_PASS_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  APPLE_PASS_KEY_PASSPHRASE?: string;
+
+  @IsOptional()
+  @IsString()
+  APPLE_WWDR_CERT?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

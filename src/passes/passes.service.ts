@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { StaffSession } from '../auth/staff-session.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { WalletNotifierService } from '../wallet/wallet-notifier.service.js';
 import { applyRedeem, applyStamp } from './stamp-rules.js';
 
 class ConcurrentUpdateError extends Error {}
@@ -14,7 +15,10 @@ const MAX_ATTEMPTS = 3;
 
 @Injectable()
 export class PassesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly wallet: WalletNotifierService,
+  ) {}
 
   async findForCashier(serialNumber: string, staff: StaffSession) {
     const { id: _id, ...pass } = await this.findOwned(serialNumber, staff);
@@ -36,6 +40,9 @@ export class PassesService {
         { type: 'STAMP', amount: count },
         staff,
       );
+      await this.wallet.passChanged(pass.id, {
+        rewardEarned: next.rewardEarned,
+      });
       return {
         serialNumber: pass.serialNumber,
         balance: next.balance,
@@ -56,6 +63,7 @@ export class PassesService {
         throw new BadRequestException((e as Error).message);
       }
       await this.commit(pass, next, { type: 'REDEEM', amount: -1 }, staff);
+      await this.wallet.passChanged(pass.id);
       return {
         serialNumber: pass.serialNumber,
         balance: pass.balance,

@@ -5,3 +5,6 @@ coverage
 *.tsbuildinfo
 src/generated/
 .DS_Store
+
+# Wallet credentials: certificates and keys never go to the repo.
+secrets/

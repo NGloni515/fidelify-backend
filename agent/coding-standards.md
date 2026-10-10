@@ -74,6 +74,18 @@ la función y guarda. El modelo es `src/passes/stamp-rules.ts`.
 - Nunca se edita ni se borra un `Transaction`. Un error se corrige con otro
   movimiento (`ADJUST`).
 
+## Servicios externos
+
+- **Un servicio externo no hace fallar una operación que ya se guardó.** El
+  aviso a la billetera va después del sello, con tope de tiempo, y su error se
+  registra y se traga (`WalletNotifierService`).
+- Se espera la llamada, no se lanza en segundo plano: en serverless el proceso
+  puede congelarse al salir la respuesta.
+- Una integración se activa sola cuando tiene todas sus variables, y sin ellas
+  responde 501 en lo suyo sin tumbar el resto.
+- En los tests no se llama a nadie: `fetch` se reemplaza con `vi.stubGlobal` y
+  el cliente de APNs con `overrideProvider`.
+
 ## Base de datos
 
 - Todo acceso pasa por Prisma.
@@ -91,6 +103,8 @@ la función y guarda. El modelo es `src/passes/stamp-rules.ts`.
   `select` explícito, no la fila entera.
 - `consentAt` y `consentText` se escriben al crear el cliente y no se
   sobrescriben.
+- La tarjeta en la billetera lleva el nombre del cliente y nada más: ni
+  teléfono ni correo.
 
 ## Validación y errores
 
@@ -149,7 +163,7 @@ se abren PRs masivos de limpieza.
 
 | Qué | Dónde |
 |---|---|
-| Comentarios en español y docstrings que narran | `src/public/`, `src/wallet/`, `src/common/`, `src/config/`, `src/passes/stamp-rules.ts`, `prisma/schema.prisma` |
+| Comentarios en español y docstrings que narran | `src/public/`, `src/common/`, `src/config/`, `src/passes/stamp-rules.ts`, `prisma/schema.prisma` |
 | `Branch`, `StaffUser`, `Customer` y `Coupon` se editan y no tienen `updatedAt` | `prisma/schema.prisma` |
 | El comentario de `Transaction.amount` dice "-8 al canjear"; el código guarda `-1` | `prisma/schema.prisma` |
 | `name` y `email` responden con el mensaje en inglés de `class-validator` | `src/public/join.dto.ts` |

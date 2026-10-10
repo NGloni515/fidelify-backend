@@ -20,13 +20,15 @@ tiene que combinar componentes termina combinándolos distinto. Ver
 
 Lo que hoy impide desplegar esto de cara a un negocio real:
 
-- **`/api/wallet/*` responde 501.** Ver `agent/features/modulo_wallet.md`.
+- **Wallet nunca se probó con credenciales reales.** El código está completo y
+  cubierto con llaves de prueba, pero ninguna tarjeta se ha instalado en un
+  teléfono. Ver `agent/features/modulo_wallet.md`.
 - **El login no limita los intentos.** Ver `agent/features/modulo_auth.md`.
 
 ## Design system
 
 El backend no tiene UI, pero produce lo que más ve el cliente final: su tarjeta
-en la billetera. Y los mensajes de error de esta API se muestran tal cual en
+en la billetera (`src/wallet/`). Y los mensajes de error de esta API se muestran tal cual en
 pantalla. Antes de tocar cualquiera de las dos cosas, leer
 [`design-system.md`](design-system.md). La fuente de verdad general está en la
 carpeta que agrupa los repos (`../design-system.md`).
@@ -112,6 +114,7 @@ npm run test:e2e
 | Validación | `class-validator` + `ValidationPipe` global (`whitelist`, `forbidNonWhitelisted`, `transform`) |
 | Config | `@nestjs/config`, validada al arrancar en `src/config/env.validation.ts` |
 | Sesión | JWT con `@nestjs/jwt`. Refresh en cookie `HttpOnly`, con las cookies nativas de Nest 12 (sin `cookie-parser`) |
+| Wallet | Apple: `passkit-generator` + push a APNs por HTTP/2. Google: JWT firmado + REST con `fetch`. Sin SDK de Google |
 | Tests | Vitest; Supertest para e2e |
 | Lint / formato | oxlint / Prettier |
 
@@ -124,7 +127,8 @@ src/app.setup.ts       prefijo /api, ValidationPipe y CORS
 src/auth/              login del equipo, sesión y guard
 src/public/            inscripción desde la página pública
 src/passes/            sellos y canjes (caja)
-src/wallet/            Apple / Google Wallet — sin implementar
+src/wallet/            tarjeta en Apple Wallet y Google Wallet, y su actualización
+secrets/               certificados y llaves de Wallet en local; ignorado por git
 src/prisma/            PrismaService, módulo global
 src/config/            validación de variables de entorno
 src/common/            generación de serial y token
@@ -141,6 +145,8 @@ src/common/            generación de serial y token
 | `JWT_ACCESS_TTL_SECONDS`, `JWT_REFRESH_TTL_SECONDS` | duración de cada token (900 y 2592000 por defecto) |
 | `NODE_ENV` | con `production` la cookie de sesión sale `Secure` |
 | `SEED_OWNER_EMAIL`, `SEED_CASHIER_EMAIL`, `SEED_STAFF_PASSWORD` | equipo que crea el seed. Solo desarrollo |
+| `PUBLIC_API_URL` | URL pública `https://` de esta API. Sin ella las tarjetas de Apple no se actualizan |
+| `GOOGLE_WALLET_*`, `APPLE_*` | credenciales de Wallet, todas opcionales. Ver `agent/features/modulo_wallet.md` |
 | `CORS_ORIGINS` | orígenes permitidos, separados por coma. Por defecto `5173` (panel) y `5174` (página pública) |
 | `PUBLIC_WEB_URL` | URL de la página pública. Declarada y validada, todavía sin uso |
 
