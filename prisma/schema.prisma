@@ -1,0 +1,238 @@
+// Modelo de datos de Fidelify.
+// Multi-negocio: cada heladería/cafetería es un Business y todo cuelga de él.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Negocios y equipo ----------
+
+model Business {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique // usado en el link público: /join/:slug
+  logoUrl   String?
+  colors    Json? // { background, foreground, label }
+  plan      Plan     @default(BASIC)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches      Branch[]
+  staff         StaffUser[]
+  programs      Program[]
+  customers     Customer[]
+  coupons       Coupon[]
+  notifications Notification[]
+}
+
+enum Plan {
+  BASIC
+  PRO
+}
+
+model Branch {
+  id         String   @id @default(uuid())
+  businessId String
+  name       String
+  address    String?
+  latitude   Float? // para notificaciones por cercanía
+  longitude  Float?
+  createdAt  DateTime @default(now())
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staff        StaffUser[]
+  transactions Transaction[]
+
+  @@index([businessId])
+}
+
+model StaffUser {
+  id           String    @id @default(uuid())
+  businessId   String
+  branchId     String?
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         StaffRole @default(CASHIER)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch       Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([businessId])
+}
+
+enum StaffRole {
+  OWNER
+  CASHIER
+}
+
+// ---------- Programa de fidelidad ----------
+
+model Program {
+  id             String      @id @default(uuid())
+  businessId     String
+  name           String
+  type           ProgramType @default(STAMPS)
+  stampsRequired Int         @default(8) // sellos para el premio
+  rewardText     String // "1 helado gratis"
+  design         Json? // textos e imágenes del pase
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  passes   Pass[]
+
+  @@index([businessId])
+}
+
+enum ProgramType {
+  STAMPS
+  POINTS
+}
+
+// ---------- Clientes y pases ----------
+
+model Customer {
+  id          String    @id @default(uuid())
+  businessId  String
+  name        String
+  phone       String
+  email       String?
+  birthDate   DateTime? @db.Date
+  consentAt   DateTime // evidencia de consentimiento (LOPDP Ecuador)
+  consentText String
+  createdAt   DateTime  @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  passes   Pass[]
+
+  @@unique([businessId, phone])
+  @@index([businessId])
+}
+
+model Pass {
+  id           String     @id @default(uuid())
+  programId    String
+  customerId   String
+  serialNumber String     @unique // va en el QR del pase
+  authToken    String // token del web service de Apple Wallet
+  platform     Platform?
+  balance      Int        @default(0) // sellos o puntos acumulados
+  rewardsReady Int        @default(0) // premios ganados y no canjeados
+  status       PassStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  program            Program                   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  customer           Customer                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions       Transaction[]
+  appleRegistrations AppleDeviceRegistration[]
+  googleObjectId     String?                   @unique
+
+  @@unique([programId, customerId])
+}
+
+enum Platform {
+  APPLE
+  GOOGLE
+}
+
+enum PassStatus {
+  ACTIVE
+  VOIDED
+}
+
+// Fuente de verdad: el saldo del pase se puede recalcular desde aquí.
+model Transaction {
+  id        String          @id @default(uuid())
+  passId    String
+  staffId   String?
+  branchId  String?
+  type      TransactionType
+  amount    Int // +1 sello, -8 al canjear, etc.
+  note      String?
+  createdAt DateTime        @default(now())
+
+  pass   Pass       @relation(fields: [passId], references: [id], onDelete: Cascade)
+  staff  StaffUser? @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  branch Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([passId, createdAt])
+}
+
+enum TransactionType {
+  STAMP
+  REDEEM
+  ADJUST
+}
+
+// ---------- Cupones ----------
+
+model Coupon {
+  id         String   @id @default(uuid())
+  businessId String
+  title      String // "2x1 en conos"
+  details    String?
+  startsAt   DateTime
+  expiresAt  DateTime
+  maxUses    Int? // null = sin límite
+  createdAt  DateTime @default(now())
+
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  redemptions CouponRedemption[]
+
+  @@index([businessId])
+}
+
+model CouponRedemption {
+  id         String   @id @default(uuid())
+  couponId   String
+  customerId String?
+  staffId    String?
+  createdAt  DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
+}
+
+// ---------- Apple Wallet: dispositivos que pidieron actualizaciones ----------
+
+model AppleDeviceRegistration {
+  id                 String   @id @default(uuid())
+  deviceLibraryId    String
+  pushToken          String
+  passTypeIdentifier String
+  passId             String
+  createdAt          DateTime @default(now())
+
+  pass Pass @relation(fields: [passId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceLibraryId, passTypeIdentifier, passId])
+}
+
+// ---------- Notificaciones enviadas ----------
+
+model Notification {
+  id         String   @id @default(uuid())
+  businessId String
+  message    String
+  segment    String? // "all", "inactive", ...
+  sentCount  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
