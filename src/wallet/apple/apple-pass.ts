@@ -64,7 +64,7 @@ export function buildApplePassFields(pass: WalletPass) {
         value: `Muestra esta tarjeta en cada compra para recibir un sello. Al juntar ${pass.program.stampsRequired} te llevas ${pass.program.rewardText}.`,
       },
       { key: 'code', label: 'Código de tu tarjeta', value: pass.serialNumber },
-      { key: 'fidelify', label: '', value: 'Tarjeta digital por Fidelify' },
+      { key: 'fidelify', value: 'Tarjeta digital por Fidelify' },
     ],
     barcode: {
       message: pass.serialNumber,

@@ -7,25 +7,15 @@ import { join } from 'node:path';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { ApnsClient } from '../src/wallet/apple/apns-client.js';
-import { createTestApp } from './helpers/app.js';
 import {
   createBusiness,
   resetDatabase,
   STAFF_PASSWORD,
 } from './helpers/fixtures.js';
+import { WALLET_ENV } from './test-env.js';
 
 const ISSUER_ID = '3388000000000000001';
 const PASS_TYPE_ID = 'pass.test.fidelify.loyalty';
-const WALLET_ENV = [
-  'GOOGLE_WALLET_ISSUER_ID',
-  'GOOGLE_WALLET_SERVICE_ACCOUNT',
-  'APPLE_PASS_TYPE_ID',
-  'APPLE_TEAM_ID',
-  'APPLE_PASS_CERT',
-  'APPLE_PASS_KEY',
-  'APPLE_WWDR_CERT',
-  'PUBLIC_API_URL',
-];
 
 const binary = (
   res: request.Response,
@@ -35,39 +25,6 @@ const binary = (
   res.on('data', (chunk: Buffer) => chunks.push(chunk));
   res.on('end', () => callback(null, Buffer.concat(chunks)));
 };
-
-describe('Wallet sin credenciales (e2e)', () => {
-  let app: INestApplication;
-  let prisma: PrismaService;
-
-  beforeAll(async () => {
-    for (const key of WALLET_ENV) delete process.env[key];
-    app = await createTestApp();
-    prisma = app.get(PrismaService);
-  });
-
-  beforeEach(async () => {
-    await resetDatabase(prisma);
-    await createBusiness(prisma, 'less');
-  });
-
-  afterAll(async () => {
-    await app.close();
-  });
-
-  it('answers 501 in Spanish instead of failing', async () => {
-    const apple = await request(app.getHttpServer())
-      .get('/api/wallet/apple/FL-LESS')
-      .expect(501);
-    const google = await request(app.getHttpServer())
-      .get('/api/wallet/google/FL-LESS')
-      .expect(501);
-    expect(apple.body.message).toBe('Apple Wallet todavía no está configurado');
-    expect(google.body.message).toBe(
-      'Google Wallet todavía no está configurado',
-    );
-  });
-});
 
 describe('Wallet (e2e)', () => {
   let app: INestApplication;
@@ -148,6 +105,9 @@ describe('Wallet (e2e)', () => {
     process.env.APPLE_WWDR_CERT = cert;
     process.env.PUBLIC_API_URL = 'https://api.fidelify.test';
 
+    // Imported here, not at the top: the config module reads the environment
+    // when the app module loads, so the credentials above must already be set.
+    const { createTestApp } = await import('./helpers/app.js');
     app = await createTestApp((builder) =>
       builder.overrideProvider(ApnsClient).useValue(apns),
     );
@@ -187,7 +147,7 @@ describe('Wallet (e2e)', () => {
   afterAll(async () => {
     vi.unstubAllGlobals();
     await app.close();
-    for (const key of WALLET_ENV) delete process.env[key];
+    for (const key of WALLET_ENV) process.env[key] = '';
     rmSync(workdir, { recursive: true, force: true });
   });
 

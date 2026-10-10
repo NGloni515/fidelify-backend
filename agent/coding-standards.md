@@ -140,6 +140,14 @@ Dos capas, las dos con **Vitest**:
     necesita con `createBusiness()` (`test/helpers/fixtures.ts`).
   - **Toda ruta que toca datos de un negocio lleva un test con dos negocios**,
     que compruebe que el segundo no se ve ni se modifica.
+  - **Los tests no dependen del `.env` de quien los corre.** `test/test-env.ts`
+    fija cada variable que cambia el comportamiento, y deja en blanco las de
+    Wallet para que las credenciales reales nunca firmen nada en un test.
+  - La configuración se lee **cuando carga el módulo de la app**, no después.
+    Un spec que necesita variables propias las pone en `process.env` y recién
+    entonces importa la app, con `await import('./helpers/app.js')`
+    (`test/wallet.e2e-spec.ts`). Cambiarlas después de un `import` estático no
+    tiene efecto.
 
 ## Calidad
 
