@@ -26,6 +26,12 @@ El seed crea el equipo con los correos y la contraseña de `.env`
 Si el puerto 5432 ya lo usa otro Postgres, cambia `DB_PORT` y el puerto de
 `DATABASE_URL` en `.env`.
 
+## Despliegue
+
+Railway construye el `Dockerfile` de la raíz. Al arrancar aplica las migraciones
+pendientes y levanta la API. Variables y detalles en [`CLAUDE.md`](CLAUDE.md),
+sección *Despliegue*.
+
 ## Wallet
 
 Sin credenciales, los enlaces de Wallet responden 501 y todo lo demás funciona.
