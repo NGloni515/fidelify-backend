@@ -104,6 +104,11 @@ npm run test:e2e
   `docker-compose.yml`.
 - El prefijo `/api`, el `ValidationPipe` y el CORS se configuran en
   `src/app.setup.ts`, que usan tanto `main.ts` como los tests.
+- **`importFileExtension = "js"` en `schema.prisma` no es decorativo.** Sin esa
+  línea, el cliente generado decide la extensión de sus imports mirando si hay
+  un `tsconfig.json` al lado. En la imagen Docker todavía no lo hay cuando corre
+  `prisma generate`, el cliente sale importando archivos `.ts`, y la app
+  compila bien y muere al arrancar con `ERR_MODULE_NOT_FOUND`.
 - **Los e2e ignoran las credenciales de Wallet del `.env`** a propósito, y usan
   llaves que generan ellos mismos. Tener Wallet configurado en local no cambia
   ningún test.
@@ -142,6 +147,7 @@ src/common/            generación de serial y token
 | Variable | Para |
 |---|---|
 | `DATABASE_URL` | conexión a PostgreSQL. **Obligatoria**, también al instalar |
+| `DIRECT_URL` | conexión directa a la base, sin pooler. Solo la usa la CLI de Prisma. Opcional: sin ella usa `DATABASE_URL` |
 | `DB_PORT` | puerto del Postgres de Docker en la máquina. Solo lo lee `docker-compose.yml` |
 | `PORT` | puerto (3000 por defecto) |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | firma de los tokens. **Obligatorias**, mínimo 32 caracteres, distintas entre sí |
@@ -156,6 +162,36 @@ src/common/            generación de serial y token
 Ver `.env.example`. Una variable nueva se declara también en
 `src/config/env.validation.ts`: así la app se niega a arrancar si falta, en vez
 de fallar en la primera petición que la use.
+
+## Despliegue
+
+Corre en **Railway**, desde el `Dockerfile` de la raíz, contra una base
+**Neon**.
+
+- Al arrancar, el contenedor corre `prisma migrate deploy` y después la app. Si
+  una migración falla, el contenedor no levanta. Conviene tener configurado el
+  healthcheck del servicio en `/api/health`.
+- **Dos URLs de base.** `DATABASE_URL` es la del *pooler* de Neon y la usa la
+  app. `DIRECT_URL` es la conexión directa y la usa solo la CLI de Prisma
+  (`prisma.config.ts`): las migraciones no funcionan bien a través del pooler.
+- La imagen **no lleva `src/`**: `npm run business:create` y el seed no corren
+  dentro del contenedor. El alta de un negocio se hace desde una máquina de
+  desarrollo, con `DATABASE_URL` apuntando a la base de producción.
+- Los secretos de Wallet van en **base64**
+  (`base64 -i secrets/apple/pass.pem | pbcopy`), nunca como archivo.
+- El panel le habla a esta API a través de su propio proxy, sin CORS. La página
+  pública sí la llama directo: su origen tiene que estar en `CORS_ORIGINS`.
+
+Variables que el servicio necesita en Railway: `DATABASE_URL`, `DIRECT_URL`,
+`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, `PUBLIC_API_URL` y las
+de Wallet. `NODE_ENV=production` ya lo fija la imagen; `PORT` lo pone Railway.
+
+Antes de subir un cambio al `Dockerfile` se construye y se arranca en local:
+
+```bash
+docker build -t fidelify-backend:local .
+docker run --rm -p 3100:3000 --env-file <archivo-con-variables> fidelify-backend:local
+```
 
 ## Orden de despliegue
 

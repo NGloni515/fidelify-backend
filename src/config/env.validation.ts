@@ -13,6 +13,11 @@ class EnvironmentVariables {
   @IsString()
   DATABASE_URL: string;
 
+  // Direct (non-pooled) connection, read only by the Prisma CLI.
+  @IsOptional()
+  @IsString()
+  DIRECT_URL?: string;
+
   @IsOptional()
   @IsInt()
   @Min(0)
