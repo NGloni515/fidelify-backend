@@ -22,6 +22,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 # npm's update notice goes to stderr, and Railway flags all stderr as an error.
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV PRISMA_HIDE_UPDATE_MESSAGE=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends openssl \
     && rm -rf /var/lib/apt/lists/*
