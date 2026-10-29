@@ -165,12 +165,14 @@ de fallar en la primera petición que la use.
 
 ## Despliegue
 
-Corre en **Railway**, desde el `Dockerfile` de la raíz, contra una base
-**Neon**.
+Corre en **Railway** (proyecto `fidelify`, servicio `fidelify-backend`), desde
+el `Dockerfile` de la raíz, contra una base **Neon**. Hoy en
+`https://fidelify-backend-production.up.railway.app`.
 
 - Al arrancar, el contenedor corre `prisma migrate deploy` y después la app. Si
-  una migración falla, el contenedor no levanta. Conviene tener configurado el
-  healthcheck del servicio en `/api/health`.
+  una migración falla, el contenedor no levanta.
+- `railway.json` fija el builder y el healthcheck en `/api/health`: Railway no
+  da por bueno un despliegue hasta que esa ruta responde.
 - **Dos URLs de base.** `DATABASE_URL` es la del *pooler* de Neon y la usa la
   app. `DIRECT_URL` es la conexión directa y la usa solo la CLI de Prisma
   (`prisma.config.ts`): las migraciones no funcionan bien a través del pooler.
