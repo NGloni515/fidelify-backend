@@ -2,9 +2,13 @@
 // Multi-negocio: cada heladería/cafetería es un Business y todo cuelga de él.
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "esm"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  // Explicit: left to auto-detection it depends on tsconfig.json being present
+  // at install time, and without it the client imports ".ts" files that do not
+  // exist once compiled.
+  importFileExtension = "js"
 }
 
 datasource db {
