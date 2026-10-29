@@ -95,6 +95,16 @@ la función y guarda. El modelo es `src/passes/stamp-rules.ts`.
 - Todo modelo lleva `createdAt`. Los que se editan llevan además
   `updatedAt @updatedAt`.
 
+### Borrar un negocio
+
+**Un `Business` con movimientos no se borra con un solo `delete`.** Postgres
+rechaza el borrado con `Transaction_passId_fkey`, aunque todas las relaciones
+estén en cascada. Cada `Transaction` cuelga del negocio por dos caminos que la
+ponen en `NULL` (`staffId` y `branchId`) y por uno que la borra (`passId`): el
+segundo `SET NULL` sobre la misma fila vuelve a validar `passId` cuando su
+`Pass` ya no existe. Se borran antes los `Transaction` del negocio y después el
+`Business`, en la misma transacción (`prisma/demo-data.ts`).
+
 ## Datos personales
 
 - Teléfono, correo y fecha de nacimiento no se escriben en logs ni en mensajes
