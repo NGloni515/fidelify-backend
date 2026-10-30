@@ -10,8 +10,18 @@ export const DEMO_CASHIER_EMAIL = 'demo-caja@fidelifyec.com';
 const STAMPS_REQUIRED = 5;
 const DAY = 24 * 60 * 60 * 1000;
 
+interface DemoCustomer {
+  code: string;
+  name: string;
+  phone: string;
+  stamps: number;
+  redeemed: number;
+  joinedDaysAgo: number;
+  adjustment?: { stamps: number; note: string };
+}
+
 // Fixed codes so a demo script can say "search FL-DEMO-CAMILA" after any reset.
-const CUSTOMERS = [
+const CUSTOMERS: DemoCustomer[] = [
   {
     code: 'CAMILA',
     name: 'Camila Torres',
@@ -24,9 +34,10 @@ const CUSTOMERS = [
     code: 'LUIS',
     name: 'Luis Andrade',
     phone: '0990000102',
-    stamps: 4,
+    stamps: 3,
     redeemed: 0,
     joinedDaysAgo: 35,
+    adjustment: { stamps: 1, note: 'Sello que la caja olvidó dar' },
   },
   {
     code: 'MARIA',
@@ -109,7 +120,7 @@ export async function resetDemo(
       const branch = business.branches[0];
       const program = business.programs[0];
 
-      const [owner] = await Promise.all([
+      const [owner, cashier] = await Promise.all([
         db.staffUser.create({
           data: {
             businessId: business.id,
@@ -135,8 +146,9 @@ export async function resetDemo(
       const cards: DemoCard[] = [];
       for (const c of CUSTOMERS) {
         const joinedAt = new Date(now.getTime() - c.joinedDaysAgo * DAY);
-        const earned = Math.floor(c.stamps / STAMPS_REQUIRED);
-        const balance = c.stamps % STAMPS_REQUIRED;
+        const held = c.stamps + (c.adjustment?.stamps ?? 0);
+        const earned = Math.floor(held / STAMPS_REQUIRED);
+        const balance = held % STAMPS_REQUIRED;
         const rewardsReady = earned - c.redeemed;
 
         const customer = await db.customer.create({
@@ -161,12 +173,22 @@ export async function resetDemo(
           },
         });
 
-        // Visits spread evenly between joining and today, redemptions last.
-        const visits = c.stamps + c.redeemed;
+        // Movements spread evenly between joining and today: stamps, then the
+        // adjustment, then redemptions.
+        const adjustments = c.adjustment
+          ? [
+              {
+                type: 'ADJUST' as const,
+                amount: c.adjustment.stamps,
+                note: c.adjustment.note,
+              },
+            ]
+          : [];
+        const slots = c.stamps + adjustments.length + c.redeemed;
         const at = (n: number) =>
           new Date(
             joinedAt.getTime() +
-              ((n + 1) * (now.getTime() - joinedAt.getTime())) / (visits + 1),
+              ((n + 1) * (now.getTime() - joinedAt.getTime())) / (slots + 1),
           );
         await db.transaction.createMany({
           data: [
@@ -175,15 +197,19 @@ export async function resetDemo(
               amount: 1,
               createdAt: at(n),
             })),
+            ...adjustments.map((movement) => ({
+              ...movement,
+              createdAt: at(c.stamps),
+            })),
             ...Array.from({ length: c.redeemed }, (_, n) => ({
               type: 'REDEEM' as const,
               amount: -1,
-              createdAt: at(c.stamps + n),
+              createdAt: at(c.stamps + adjustments.length + n),
             })),
           ].map((movement) => ({
             ...movement,
             passId: pass.id,
-            staffId: owner.id,
+            staffId: movement.type === 'ADJUST' ? owner.id : cashier.id,
             branchId: branch.id,
           })),
         });

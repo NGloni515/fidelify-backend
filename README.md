@@ -82,6 +82,9 @@ npm run staff:reset-password -- --email dueno@negocio.com
 | GET | `/api/passes/:serial` | Consulta un pase (caja, con sesión) |
 | POST | `/api/passes/:serial/stamp` | Suma sellos `{ "count": 1 }` (caja, con sesión) |
 | POST | `/api/passes/:serial/redeem` | Canjea un premio (caja, con sesión) |
+| POST | `/api/passes/:serial/adjust` | Suma o quita sellos con un motivo (dueño) |
+| POST | `/api/customers/search` | Lista y busca clientes (dueño) |
+| GET | `/api/customers/:id` | Ficha de un cliente con su historial (dueño) |
 | GET | `/api/wallet/apple/:serial` | Tarjeta para Apple Wallet (`.pkpass`) |
 | GET | `/api/wallet/google/:serial` | Redirige al enlace de guardado de Google Wallet |
 | — | `/api/wallet/apple/v1/…` | Web service que llama Apple Wallet para actualizar tarjetas |
@@ -93,7 +96,8 @@ prisma/schema.prisma   Modelo de datos (negocios, clientes, pases, movimientos, 
 src/auth/              Login del equipo, sesión, límite de intentos y guards
 src/staff/             Equipo: el dueño administra a sus cajeras
 src/public/            Inscripción desde la web pública
-src/passes/            Sellos y canjes (stamp-rules.ts tiene la lógica pura + tests)
+src/passes/            Sellos, canjes y ajustes (stamp-rules.ts tiene la lógica pura + tests)
+src/customers/         Clientes: lista, búsqueda y ficha
 src/wallet/            Apple / Google Wallet: tarjeta y actualización tras cada sello
 secrets/               Certificados y llaves de Wallet en local (ignorado por git)
 src/prisma/            Conexión a la base de datos
@@ -112,10 +116,11 @@ src/config/            Validación de variables de entorno
 | Equipo | [`agent/features/modulo_equipo.md`](agent/features/modulo_equipo.md) |
 | Inscripción pública | [`agent/features/modulo_inscripcion.md`](agent/features/modulo_inscripcion.md) |
 | Sellos y canjes | [`agent/features/modulo_sellos.md`](agent/features/modulo_sellos.md) |
+| Clientes | [`agent/features/modulo_clientes.md`](agent/features/modulo_clientes.md) |
 | Wallet | [`agent/features/modulo_wallet.md`](agent/features/modulo_wallet.md) |
 | Tarjeta y textos de la API | [`design-system.md`](design-system.md) |
 
 ## Próximos pasos
 
 1. Wallet: probar en un iPhone y cargar las credenciales de Google.
-2. Endpoints del backoffice: clientes, programa, cupones y notificaciones.
+2. Endpoints del backoffice: inicio del dueño, programa, cupones y notificaciones.

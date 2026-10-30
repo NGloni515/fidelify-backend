@@ -4,6 +4,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createTestApp } from './helpers/app.js';
 import {
   createBusiness,
+  createOwner,
   resetDatabase,
   STAFF_PASSWORD,
 } from './helpers/fixtures.js';
@@ -160,5 +161,105 @@ describe('Passes (e2e)', () => {
     });
     expect(pass.balance).toBe(2);
     expect(await prisma.transaction.count()).toBe(2);
+  });
+
+  describe('POST /api/passes/:serial/adjust', () => {
+    let owner: Awaited<ReturnType<typeof createOwner>>;
+    let ownerToken: string;
+    const adjust = (serial: string, body: object) =>
+      request(app.getHttpServer())
+        .post(`/api/passes/${serial}/adjust`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(body);
+
+    beforeEach(async () => {
+      owner = await createOwner(prisma, less);
+      ownerToken = (
+        await request(app.getHttpServer())
+          .post('/api/auth/login')
+          .send({ email: owner.email, password: STAFF_PASSWORD })
+          .expect(200)
+      ).body.accessToken;
+    });
+
+    it('adds stamps and records the reason and who adjusted', async () => {
+      const res = await adjust('FL-LESS', {
+        stamps: 2,
+        note: '  La caja olvidó dar dos sellos ',
+      }).expect(201);
+
+      expect(res.body).toEqual({
+        serialNumber: 'FL-LESS',
+        balance: 2,
+        stampsRequired: 3,
+        rewardsReady: 0,
+        rewardEarned: false,
+      });
+      expect(await prisma.transaction.findMany()).toEqual([
+        expect.objectContaining({
+          type: 'ADJUST',
+          amount: 2,
+          note: 'La caja olvidó dar dos sellos',
+          staffId: owner.id,
+          branchId: less.branch.id,
+        }),
+      ]);
+    });
+
+    it('taking back the stamp that completed the card takes back its reward', async () => {
+      await stamp('FL-LESS', { count: 3 }).expect(201);
+
+      const res = await adjust('FL-LESS', {
+        stamps: -1,
+        note: 'Sello de más',
+      }).expect(201);
+
+      expect(res.body).toMatchObject({ balance: 2, rewardsReady: 0 });
+    });
+
+    it('does not remove more stamps than the card holds', async () => {
+      await stamp('FL-LESS', { count: 1 }).expect(201);
+
+      const res = await adjust('FL-LESS', {
+        stamps: -2,
+        note: 'Sello de más',
+      }).expect(400);
+
+      expect(res.body.message).toBe(
+        'A esta tarjeta solo se le puede quitar 1 sello',
+      );
+      expect(
+        await prisma.transaction.count({ where: { type: 'ADJUST' } }),
+      ).toBe(0);
+    });
+
+    it('asks for a reason and a non-zero amount, in Spanish', async () => {
+      const noReason = await adjust('FL-LESS', { stamps: 1 }).expect(400);
+      expect(noReason.body.message).toEqual([
+        'El motivo del ajuste debe tener entre 3 y 200 caracteres',
+        'Escribe el motivo del ajuste',
+      ]);
+      const zero = await adjust('FL-LESS', {
+        stamps: 0,
+        note: 'Nada',
+      }).expect(400);
+      expect(zero.body.message).toEqual(['Suma o quita al menos 1 sello']);
+    });
+
+    it('is closed to cashiers', async () => {
+      const res = await as(
+        request(app.getHttpServer()).post('/api/passes/FL-LESS/adjust'),
+      )
+        .send({ stamps: 1, note: 'Me lo regalo' })
+        .expect(403);
+      expect(res.body.message).toBe(
+        'Solo el dueño del negocio puede hacer esto',
+      );
+    });
+
+    it("treats another business's card as not found", async () => {
+      await adjust('FL-OTRO', { stamps: 1, note: 'Ajuste ajeno' }).expect(404);
+      expect(await prisma.transaction.count()).toBe(0);
+    });
   });
 });

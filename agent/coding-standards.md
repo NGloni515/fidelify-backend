@@ -114,7 +114,8 @@ segundo `SET NULL` sobre la misma fila vuelve a validar `passId` cuando su
 ## Datos personales
 
 - Teléfono, correo y fecha de nacimiento no se escriben en logs ni en mensajes
-  de error, y no viajan en la URL.
+  de error, y no viajan en la URL. Una búsqueda que puede llevar un teléfono va
+  por `POST`, en el body (`POST /customers/search`).
 - Una respuesta lleva de `Customer` solo los campos que la pantalla necesita:
   `select` explícito, no la fila entera.
 - `consentAt` y `consentText` se escriben al crear el cliente y no se
@@ -187,7 +188,7 @@ se abren PRs masivos de limpieza.
 
 | Qué | Dónde |
 |---|---|
-| Comentarios en español y docstrings que narran | `src/public/`, `src/common/`, `src/config/`, `src/passes/stamp-rules.ts` |
+| Comentarios en español y docstrings que narran | `src/public/`, `src/common/`, `src/config/` |
 | `Branch`, `Customer` y `Coupon` se editan y no tienen `updatedAt` | `prisma/schema.prisma` |
 | `name` y `email` responden con el mensaje en inglés de `class-validator` | `src/public/join.dto.ts` |
 

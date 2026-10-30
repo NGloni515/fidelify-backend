@@ -66,7 +66,7 @@ describe('Demo (e2e)', () => {
     expect(passes).toHaveLength(6);
     for (const pass of passes) {
       const stamps = pass.transactions
-        .filter((t) => t.type === 'STAMP')
+        .filter((t) => t.type === 'STAMP' || t.type === 'ADJUST')
         .reduce((sum, t) => sum + t.amount, 0);
       const redeemed = pass.transactions.filter(
         (t) => t.type === 'REDEEM',

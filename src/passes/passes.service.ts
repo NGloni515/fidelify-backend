@@ -7,7 +7,7 @@ import {
 import type { StaffSession } from '../auth/staff-session.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { WalletNotifierService } from '../wallet/wallet-notifier.service.js';
-import { applyRedeem, applyStamp } from './stamp-rules.js';
+import { applyAdjust, applyRedeem, applyStamp } from './stamp-rules.js';
 
 class ConcurrentUpdateError extends Error {}
 
@@ -73,6 +73,44 @@ export class PassesService {
     });
   }
 
+  async adjust(
+    serialNumber: string,
+    staff: StaffSession,
+    stamps: number,
+    note: string,
+  ) {
+    return this.withRetry(async () => {
+      const pass = await this.findOwned(serialNumber, staff);
+      let next: ReturnType<typeof applyAdjust>;
+      try {
+        next = applyAdjust(
+          pass.balance,
+          pass.rewardsReady,
+          pass.program.stampsRequired,
+          stamps,
+        );
+      } catch (e) {
+        throw new BadRequestException((e as Error).message);
+      }
+      await this.commit(
+        pass,
+        { balance: next.balance, rewardsReady: next.rewardsReady },
+        { type: 'ADJUST', amount: stamps, note },
+        staff,
+      );
+      await this.wallet.passChanged(pass.id, {
+        rewardEarned: next.rewardEarned,
+      });
+      return {
+        serialNumber: pass.serialNumber,
+        balance: next.balance,
+        stampsRequired: pass.program.stampsRequired,
+        rewardsReady: next.rewardsReady,
+        rewardEarned: next.rewardEarned,
+      };
+    });
+  }
+
   private async findOwned(serialNumber: string, staff: StaffSession) {
     const pass = await this.prisma.pass.findFirst({
       where: {
@@ -99,7 +137,11 @@ export class PassesService {
   private async commit(
     pass: { id: string; balance: number; rewardsReady: number },
     data: { balance?: number; rewardsReady: number },
-    movement: { type: 'STAMP' | 'REDEEM'; amount: number },
+    movement: {
+      type: 'STAMP' | 'REDEEM' | 'ADJUST';
+      amount: number;
+      note?: string;
+    },
     staff: StaffSession,
   ) {
     await this.prisma.$transaction(async (db) => {
