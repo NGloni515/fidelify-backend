@@ -17,6 +17,9 @@ interface DemoCustomer {
   stamps: number;
   redeemed: number;
   joinedDaysAgo: number;
+  // Movements end this many days ago instead of today: a customer who stopped
+  // coming.
+  lastSeenDaysAgo?: number;
   adjustment?: { stamps: number; note: string };
 }
 
@@ -70,6 +73,15 @@ const CUSTOMERS: DemoCustomer[] = [
     stamps: 7,
     redeemed: 1,
     joinedDaysAgo: 15,
+  },
+  {
+    code: 'PEDRO',
+    name: 'Pedro Cevallos',
+    phone: '0990000107',
+    stamps: 2,
+    redeemed: 0,
+    joinedDaysAgo: 75,
+    lastSeenDaysAgo: 45,
   },
 ];
 
@@ -185,10 +197,11 @@ export async function resetDemo(
             ]
           : [];
         const slots = c.stamps + adjustments.length + c.redeemed;
+        const until = now.getTime() - (c.lastSeenDaysAgo ?? 0) * DAY;
         const at = (n: number) =>
           new Date(
             joinedAt.getTime() +
-              ((n + 1) * (now.getTime() - joinedAt.getTime())) / (slots + 1),
+              ((n + 1) * (until - joinedAt.getTime())) / (slots + 1),
           );
         await db.transaction.createMany({
           data: [
