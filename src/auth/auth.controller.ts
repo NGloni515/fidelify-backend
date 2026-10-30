@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AuthService, type IssuedSession } from './auth.service.js';
 import { CurrentStaff } from './current-staff.decorator.js';
+import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { StaffAuthGuard } from './staff-auth.guard.js';
 import type { StaffSession } from './staff-session.js';
@@ -57,6 +58,16 @@ export class AuthController {
   @UseGuards(StaffAuthGuard)
   me(@CurrentStaff() staff: StaffSession) {
     return staff;
+  }
+
+  @Post('password')
+  @HttpCode(204)
+  @UseGuards(StaffAuthGuard)
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @CurrentStaff() staff: StaffSession,
+  ) {
+    await this.auth.changePassword(staff, dto.currentPassword, dto.newPassword);
   }
 
   private open(res: unknown, session: IssuedSession) {

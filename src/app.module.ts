@@ -6,6 +6,7 @@ import { HealthController } from './health/health.controller.js';
 import { PassesModule } from './passes/passes.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PublicModule } from './public/public.module.js';
+import { StaffModule } from './staff/staff.module.js';
 import { WalletModule } from './wallet/wallet.module.js';
 
 @Module({
@@ -15,6 +16,7 @@ import { WalletModule } from './wallet/wallet.module.js';
     AuthModule,
     PublicModule,
     PassesModule,
+    StaffModule,
     WalletModule,
   ],
   controllers: [HealthController],

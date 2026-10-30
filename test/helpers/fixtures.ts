@@ -64,3 +64,20 @@ export async function createBusiness(prisma: PrismaService, slug: string) {
 
   return { business, branch, program, cashier, customer, pass };
 }
+
+export async function createOwner(
+  prisma: PrismaService,
+  fixture: Awaited<ReturnType<typeof createBusiness>>,
+) {
+  const slug = fixture.business.slug;
+  return prisma.staffUser.create({
+    data: {
+      businessId: fixture.business.id,
+      branchId: fixture.branch.id,
+      name: `Dueño ${slug}`,
+      email: `dueno@${slug}.test`,
+      role: 'OWNER',
+      passwordHash: await staffPasswordHash,
+    },
+  });
+}

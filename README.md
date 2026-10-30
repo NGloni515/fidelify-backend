@@ -52,6 +52,14 @@ Crea el negocio, su local, su tarjeta de sellos y su dueño, e imprime una
 contraseña temporal **una sola vez**. El `slug` queda impreso en el QR del
 mostrador: no se cambia después. Corre contra la base de `DATABASE_URL`.
 
+Las cajeras las agrega el dueño desde el panel, en **Equipo**. Si alguien olvida
+su contraseña, el dueño se la cambia a una cajera desde ahí; la del dueño la
+cambia soporte:
+
+```bash
+npm run staff:reset-password -- --email dueno@negocio.com
+```
+
 ## Demo
 
 `npm run demo:reset` borra y vuelve a crear la demo (Heladería Demo, `/join/demo`) con su equipo, clientes y tarjetas de ejemplo; la contraseña de los usuarios demo va en `DEMO_PASSWORD`. En producción se corre desde **Actions → Reiniciar demo**. Detalle en [`CLAUDE.md`](CLAUDE.md), sección *La demo*.
@@ -65,6 +73,10 @@ mostrador: no se cambia después. Corre contra la base de `DATABASE_URL`.
 | POST | `/api/auth/refresh` | Renueva la sesión con la cookie |
 | POST | `/api/auth/logout` | Cierra la sesión |
 | GET | `/api/auth/me` | Usuario con sesión |
+| POST | `/api/auth/password` | Cambia la contraseña propia |
+| GET | `/api/staff` | Equipo del negocio (dueño) |
+| POST | `/api/staff` | Agrega una cajera (dueño) |
+| PATCH | `/api/staff/:id` | Desactiva, reactiva o cambia la contraseña de una cajera (dueño) |
 | GET | `/api/public/businesses/:slug` | Datos del negocio y su programa (web pública) |
 | POST | `/api/public/businesses/:slug/join` | Inscribe al cliente y crea su pase |
 | GET | `/api/passes/:serial` | Consulta un pase (caja, con sesión) |
@@ -78,7 +90,8 @@ mostrador: no se cambia después. Corre contra la base de `DATABASE_URL`.
 
 ```
 prisma/schema.prisma   Modelo de datos (negocios, clientes, pases, movimientos, cupones…)
-src/auth/              Login del equipo, sesión y guard
+src/auth/              Login del equipo, sesión, límite de intentos y guards
+src/staff/             Equipo: el dueño administra a sus cajeras
 src/public/            Inscripción desde la web pública
 src/passes/            Sellos y canjes (stamp-rules.ts tiene la lógica pura + tests)
 src/wallet/            Apple / Google Wallet: tarjeta y actualización tras cada sello
@@ -96,6 +109,7 @@ src/config/            Validación de variables de entorno
 | Estándares de código | [`agent/coding-standards.md`](agent/coding-standards.md) |
 | Flujo de trabajo | [`agent/ai-interaction.md`](agent/ai-interaction.md) |
 | Sesión del equipo | [`agent/features/modulo_auth.md`](agent/features/modulo_auth.md) |
+| Equipo | [`agent/features/modulo_equipo.md`](agent/features/modulo_equipo.md) |
 | Inscripción pública | [`agent/features/modulo_inscripcion.md`](agent/features/modulo_inscripcion.md) |
 | Sellos y canjes | [`agent/features/modulo_sellos.md`](agent/features/modulo_sellos.md) |
 | Wallet | [`agent/features/modulo_wallet.md`](agent/features/modulo_wallet.md) |
@@ -103,6 +117,5 @@ src/config/            Validación de variables de entorno
 
 ## Próximos pasos
 
-1. Permisos por rol y gestión del equipo (alta de cajeros, contraseñas).
-2. Wallet: cargar las credenciales reales y probar en un iPhone y un Android.
-3. Endpoints del backoffice: programa, clientes, cupones y notificaciones.
+1. Wallet: probar en un iPhone y cargar las credenciales de Google.
+2. Endpoints del backoffice: clientes, programa, cupones y notificaciones.

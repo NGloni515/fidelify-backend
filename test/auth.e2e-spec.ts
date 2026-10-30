@@ -198,4 +198,153 @@ describe('Auth (e2e)', () => {
       await agent.post('/api/auth/refresh').expect(401);
     });
   });
+
+  // The attempt counts live in the app for its whole life, so every test here
+  // uses accounts no other test touches.
+  describe('attempt limit', () => {
+    const login = (email: string, password: string) =>
+      request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email, password });
+
+    it('blocks an account after 5 failed attempts, even with the right password', async () => {
+      const { cashier } = await createBusiness(prisma, 'bloqueo');
+      for (let i = 0; i < 5; i++)
+        await login(cashier.email, 'otra-clave').expect(401);
+
+      const res = await login(cashier.email, STAFF_PASSWORD).expect(429);
+      expect(res.body.message).toBe(
+        'Demasiados intentos. Vuelve a intentar en 15 minutos.',
+      );
+    });
+
+    it('blocks an unknown email the same way, so it does not reveal which exist', async () => {
+      for (let i = 0; i < 5; i++)
+        await login('nadie@bloqueo.test', 'otra-clave').expect(401);
+      await login('nadie@bloqueo.test', 'otra-clave').expect(429);
+    });
+
+    it('counts the email in any casing as the same account', async () => {
+      const { cashier } = await createBusiness(prisma, 'mayusculas');
+      for (let i = 0; i < 5; i++)
+        await login(cashier.email.toUpperCase(), 'otra-clave').expect(401);
+      await login(cashier.email, STAFF_PASSWORD).expect(429);
+    });
+
+    it('starts the count over after a successful login', async () => {
+      const { cashier } = await createBusiness(prisma, 'reinicio');
+      for (let i = 0; i < 4; i++)
+        await login(cashier.email, 'otra-clave').expect(401);
+      await login(cashier.email, STAFF_PASSWORD).expect(200);
+      for (let i = 0; i < 4; i++)
+        await login(cashier.email, 'otra-clave').expect(401);
+      await login(cashier.email, STAFF_PASSWORD).expect(200);
+    });
+
+    it('does not block other accounts', async () => {
+      const blocked = await createBusiness(prisma, 'vecino-a');
+      const neighbour = await createBusiness(prisma, 'vecino-b');
+      for (let i = 0; i < 5; i++)
+        await login(blocked.cashier.email, 'otra-clave').expect(401);
+
+      await login(neighbour.cashier.email, STAFF_PASSWORD).expect(200);
+    });
+
+    it('caps a burst of parallel attempts at the limit', async () => {
+      const { cashier } = await createBusiness(prisma, 'rafaga');
+      const statuses = await Promise.all(
+        Array.from(
+          { length: 8 },
+          async () => (await login(cashier.email, 'otra-clave')).status,
+        ),
+      );
+      expect(statuses.filter((s) => s === 401)).toHaveLength(5);
+      expect(statuses.filter((s) => s === 429)).toHaveLength(3);
+    });
+  });
+
+  describe('POST /api/auth/password', () => {
+    const changePassword = (token: string, body: object) =>
+      request(app.getHttpServer())
+        .post('/api/auth/password')
+        .set('Authorization', `Bearer ${token}`)
+        .send(body);
+    const accessToken = async () =>
+      (
+        await request(app.getHttpServer())
+          .post('/api/auth/login')
+          .send(credentials())
+          .expect(200)
+      ).body.accessToken as string;
+
+    it('needs a session', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/password')
+        .send({ currentPassword: STAFF_PASSWORD, newPassword: 'nueva-2026' })
+        .expect(401);
+    });
+
+    it('changes the password: the old one stops working', async () => {
+      await changePassword(await accessToken(), {
+        currentPassword: STAFF_PASSWORD,
+        newPassword: 'nueva-clave-2026',
+      }).expect(204);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send(credentials())
+        .expect(401);
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ ...credentials(), password: 'nueva-clave-2026' })
+        .expect(200);
+    });
+
+    it('asks for the current password', async () => {
+      const res = await changePassword(await accessToken(), {
+        currentPassword: 'no-es-esta',
+        newPassword: 'nueva-clave-2026',
+      }).expect(400);
+
+      expect(res.body.message).toBe('Tu contraseña actual no es correcta');
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send(credentials())
+        .expect(200);
+    });
+
+    it('asks for a new password of at least 8 characters', async () => {
+      const res = await changePassword(await accessToken(), {
+        currentPassword: STAFF_PASSWORD,
+        newPassword: 'corta',
+      }).expect(400);
+      expect(res.body.message).toEqual([
+        'La contraseña debe tener al menos 8 caracteres',
+      ]);
+    });
+
+    it('shares the attempt limit with the login', async () => {
+      const { cashier } = await createBusiness(prisma, 'cambio');
+      const token = (
+        await request(app.getHttpServer())
+          .post('/api/auth/login')
+          .send({ email: cashier.email, password: STAFF_PASSWORD })
+          .expect(200)
+      ).body.accessToken as string;
+      for (let i = 0; i < 5; i++)
+        await changePassword(token, {
+          currentPassword: 'no-es-esta',
+          newPassword: 'nueva-clave-2026',
+        }).expect(400);
+
+      await changePassword(token, {
+        currentPassword: STAFF_PASSWORD,
+        newPassword: 'nueva-clave-2026',
+      }).expect(429);
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: cashier.email, password: STAFF_PASSWORD })
+        .expect(429);
+    });
+  });
 });

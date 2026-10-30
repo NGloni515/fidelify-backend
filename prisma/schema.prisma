@@ -1,6 +1,3 @@
-// Modelo de datos de Fidelify.
-// Multi-negocio: cada heladería/cafetería es un Business y todo cuelga de él.
-
 generator client {
   provider            = "prisma-client"
   output              = "../src/generated/prisma"
@@ -15,12 +12,12 @@ datasource db {
   provider = "postgresql"
 }
 
-// ---------- Negocios y equipo ----------
+// ---------- Businesses and staff ----------
 
 model Business {
   id        String   @id @default(uuid())
   name      String
-  slug      String   @unique // usado en el link público: /join/:slug
+  slug      String   @unique // printed on the counter QR: /join/:slug
   logoUrl   String?
   colors    Json? // { background, foreground, label }
   plan      Plan     @default(BASIC)
@@ -46,7 +43,7 @@ model Branch {
   businessId String
   name       String
   address    String?
-  latitude   Float? // para notificaciones por cercanía
+  latitude   Float?
   longitude  Float?
   createdAt  DateTime @default(now())
 
@@ -67,6 +64,7 @@ model StaffUser {
   role         StaffRole @default(CASHIER)
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
 
   business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   branch       Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
@@ -80,16 +78,16 @@ enum StaffRole {
   CASHIER
 }
 
-// ---------- Programa de fidelidad ----------
+// ---------- Loyalty program ----------
 
 model Program {
   id             String      @id @default(uuid())
   businessId     String
   name           String
   type           ProgramType @default(STAMPS)
-  stampsRequired Int         @default(8) // sellos para el premio
+  stampsRequired Int         @default(8)
   rewardText     String // "1 helado gratis"
-  design         Json? // textos e imágenes del pase
+  design         Json? // no defined shape yet
   active         Boolean     @default(true)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -105,7 +103,7 @@ enum ProgramType {
   POINTS
 }
 
-// ---------- Clientes y pases ----------
+// ---------- Customers and passes ----------
 
 model Customer {
   id          String    @id @default(uuid())
@@ -114,7 +112,7 @@ model Customer {
   phone       String
   email       String?
   birthDate   DateTime? @db.Date
-  consentAt   DateTime // evidencia de consentimiento (LOPDP Ecuador)
+  consentAt   DateTime // consent evidence required by Ecuador's LOPDP
   consentText String
   createdAt   DateTime  @default(now())
 
@@ -129,11 +127,11 @@ model Pass {
   id           String     @id @default(uuid())
   programId    String
   customerId   String
-  serialNumber String     @unique // va en el QR del pase
-  authToken    String // token del web service de Apple Wallet
+  serialNumber String     @unique // encoded in the pass QR
+  authToken    String // Apple Wallet web service secret; never returned
   platform     Platform?
-  balance      Int        @default(0) // sellos o puntos acumulados
-  rewardsReady Int        @default(0) // premios ganados y no canjeados
+  balance      Int        @default(0) // stamps towards the next reward
+  rewardsReady Int        @default(0) // earned and not yet redeemed
   status       PassStatus @default(ACTIVE)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -157,14 +155,14 @@ enum PassStatus {
   VOIDED
 }
 
-// Fuente de verdad: el saldo del pase se puede recalcular desde aquí.
+// Source of truth: a pass balance can be rebuilt from these rows.
 model Transaction {
   id        String          @id @default(uuid())
   passId    String
   staffId   String?
   branchId  String?
   type      TransactionType
-  amount    Int // +1 sello, -8 al canjear, etc.
+  amount    Int // stamps given; -1 per redeemed reward
   note      String?
   createdAt DateTime        @default(now())
 
@@ -181,7 +179,7 @@ enum TransactionType {
   ADJUST
 }
 
-// ---------- Cupones ----------
+// ---------- Coupons ----------
 
 model Coupon {
   id         String   @id @default(uuid())
@@ -190,7 +188,7 @@ model Coupon {
   details    String?
   startsAt   DateTime
   expiresAt  DateTime
-  maxUses    Int? // null = sin límite
+  maxUses    Int? // null = unlimited
   createdAt  DateTime @default(now())
 
   business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -211,7 +209,7 @@ model CouponRedemption {
   @@index([couponId])
 }
 
-// ---------- Apple Wallet: dispositivos que pidieron actualizaciones ----------
+// ---------- Apple Wallet: devices registered for updates ----------
 
 model AppleDeviceRegistration {
   id                 String   @id @default(uuid())
@@ -226,7 +224,7 @@ model AppleDeviceRegistration {
   @@unique([deviceLibraryId, passTypeIdentifier, passId])
 }
 
-// ---------- Notificaciones enviadas ----------
+// ---------- Sent notifications ----------
 
 model Notification {
   id         String   @id @default(uuid())

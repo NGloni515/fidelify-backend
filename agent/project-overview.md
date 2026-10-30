@@ -21,7 +21,8 @@ quiénes son sus clientes, cada cuánto vuelven y cómo escribirles.
 No existe un panel interno de Fidelify. Un negocio se da de alta con
 `npm run business:create`, que crea el `Business`, su local, su programa y su
 dueño con una contraseña temporal. Nunca pisa un negocio existente: si el
-`slug` o el correo ya están tomados, se niega.
+`slug` o el correo ya están tomados, se niega. Las cajeras las agrega después
+el dueño desde el panel.
 
 ---
 
@@ -183,6 +184,7 @@ panel. Nunca de un campo del body.
 | Dominio | `src/` | Estado | Doc |
 |---|---|---|---|
 | Sesión del equipo | `auth/` | funcional | [`modulo_auth`](features/modulo_auth.md) |
+| Equipo (dueño) | `staff/` | funcional | [`modulo_equipo`](features/modulo_equipo.md) |
 | Inscripción pública | `public/` | funcional | [`modulo_inscripcion`](features/modulo_inscripcion.md) |
 | Sellos y canjes (caja) | `passes/` | funcional | [`modulo_sellos`](features/modulo_sellos.md) |
 | Wallet | `wallet/` | funcional con credenciales; 501 sin ellas. Sin probar en teléfonos | [`modulo_wallet`](features/modulo_wallet.md) |
@@ -200,6 +202,10 @@ Todos bajo el prefijo `/api`.
 | POST | `/auth/refresh` | panel |
 | POST | `/auth/logout` | panel |
 | GET | `/auth/me` | panel, con sesión |
+| POST | `/auth/password` | panel, con sesión |
+| GET | `/staff` | panel, dueño |
+| POST | `/staff` | panel, dueño |
+| PATCH | `/staff/:id` | panel, dueño |
 | GET | `/public/businesses/:slug` | página pública |
 | POST | `/public/businesses/:slug/join` | página pública |
 | GET | `/passes/:serial` | caja, con sesión |
@@ -216,8 +222,8 @@ Todos bajo el prefijo `/api`.
 Es lo que se le ofrece a un negocio. Sirve para saber hacia dónde crece el
 modelo, no para implementarlo sin que se pida.
 
-- **Permisos por rol** y gestión del equipo desde el panel: alta de cajeras,
-  cambio y recuperación de contraseña.
+- **Recuperar la contraseña por correo.** Hoy la cambia soporte
+  (`npm run staff:reset-password`).
 - **Subir el logo del negocio**: la tarjeta ya lo muestra, pero hoy tiene que
   ser una URL pública puesta a mano.
 - **Panel del dueño**: cuántos clientes tiene, quiénes vienen más seguido,
