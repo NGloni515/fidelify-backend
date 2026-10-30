@@ -1,0 +1,25 @@
+name: Reiniciar demo
+
+# Run by hand from the Actions tab. It hits the production database, so run it
+# after Railway has finished deploying: the schema must already be migrated.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: demo-reset
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+      DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run demo:reset

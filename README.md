@@ -52,6 +52,10 @@ Crea el negocio, su local, su tarjeta de sellos y su dueño, e imprime una
 contraseña temporal **una sola vez**. El `slug` queda impreso en el QR del
 mostrador: no se cambia después. Corre contra la base de `DATABASE_URL`.
 
+## Demo
+
+`npm run demo:reset` borra y vuelve a crear la demo (Heladería Demo, `/join/demo`) con su equipo, clientes y tarjetas de ejemplo; la contraseña de los usuarios demo va en `DEMO_PASSWORD`. En producción se corre desde **Actions → Reiniciar demo**. Detalle en [`CLAUDE.md`](CLAUDE.md), sección *La demo*.
+
 ## Endpoints actuales
 
 | Método | Ruta | Uso |

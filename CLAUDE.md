@@ -63,6 +63,7 @@ npm run db:seed        # crea "Heladería Demo" con una dueña y una cajera
 npm run db:studio
 
 npm run business:create -- --name … --slug …   # da de alta un negocio real
+DEMO_PASSWORD=… npm run demo:reset               # borra y rehace la demo
 ```
 
 Un solo archivo de test: `npx vitest run src/passes/stamp-rules.spec.ts`
@@ -131,6 +132,8 @@ prisma/schema.prisma   modelo de datos
 prisma/migrations/     migraciones; se commitean
 prisma/seed.ts         negocio de ejemplo con su equipo, para desarrollo
 prisma/create-business.ts  alta de un negocio real con su dueño
+prisma/demo-data.ts    la demo completa: negocio, equipo, clientes y tarjetas
+prisma/demo.ts         CLI de la demo (npm run demo:reset)
 src/app.setup.ts       prefijo /api, ValidationPipe y CORS
 src/auth/              login del equipo, sesión y guard
 src/public/            inscripción desde la página pública
@@ -156,6 +159,7 @@ src/common/            generación de serial y token
 | `SEED_OWNER_EMAIL`, `SEED_CASHIER_EMAIL`, `SEED_STAFF_PASSWORD` | equipo que crea el seed. Solo desarrollo |
 | `PUBLIC_API_URL` | URL pública `https://` de esta API. Sin ella las tarjetas de Apple no se actualizan |
 | `GOOGLE_WALLET_*`, `APPLE_*` | credenciales de Wallet, todas opcionales. Ver `agent/features/modulo_wallet.md` |
+| `DEMO_PASSWORD` | contraseña de los dos usuarios demo. Solo la lee `npm run demo:reset` |
 | `CORS_ORIGINS` | orígenes permitidos, separados por coma. Por defecto `5173` (panel) y `5174` (página pública) |
 | `PUBLIC_WEB_URL` | URL de la página pública. Declarada y validada, todavía sin uso |
 
@@ -194,6 +198,26 @@ Antes de subir un cambio al `Dockerfile` se construye y se arranca en local:
 docker build -t fidelify-backend:local .
 docker run --rm -p 3100:3000 --env-file <archivo-con-variables> fidelify-backend:local
 ```
+
+## La demo
+
+Un negocio de muestra que vive en producción para enseñar el producto:
+**Heladería Demo** (`slug` `demo`), con dueña (`demo@fidelifyec.com`), cajera
+(`demo-caja@fidelifyec.com`) y seis clientes con historial, cuyas tarjetas
+tienen códigos fijos (`FL-DEMO-CAMILA`, `FL-DEMO-LUIS`…).
+
+- **Se arma en código**, en `prisma/demo-data.ts`. Cuando una funcionalidad
+  nueva necesite datos para lucirse en la demo, se agregan ahí.
+- **Reiniciarla borra todo lo que cuelga del negocio y lo vuelve a crear**,
+  incluidas las tarjetas que alguien haya sacado por `/join/demo`: esas dejan de
+  actualizarse en el celular. Los demás negocios no se tocan (cubierto en
+  `test/demo.e2e-spec.ts`).
+- **El `slug` `demo` está reservado.** Ningún negocio real puede usarlo.
+- En producción se reinicia desde GitHub: pestaña **Actions → Reiniciar demo →
+  Run workflow** (`.github/workflows/demo-reset.yml`). Usa los secretos del
+  repo `DEMO_DATABASE_URL` (la conexión directa de Neon) y `DEMO_PASSWORD`. Se
+  corre después de que Railway termine de desplegar, para que el esquema ya
+  esté migrado.
 
 ## Orden de despliegue
 
