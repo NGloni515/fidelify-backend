@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentStaff } from '../auth/current-staff.decorator.js';
+import { OwnerGuard } from '../auth/owner.guard.js';
 import { StaffAuthGuard } from '../auth/staff-auth.guard.js';
 import type { StaffSession } from '../auth/staff-session.js';
+import { AdjustDto } from './dto/adjust.dto.js';
 import { StampDto } from './dto/stamp.dto.js';
 import { PassesService } from './passes.service.js';
 
@@ -27,5 +29,15 @@ export class PassesController {
   @Post(':serial/redeem')
   redeem(@Param('serial') serial: string, @CurrentStaff() staff: StaffSession) {
     return this.service.redeem(serial, staff);
+  }
+
+  @Post(':serial/adjust')
+  @UseGuards(OwnerGuard)
+  adjust(
+    @Param('serial') serial: string,
+    @Body() dto: AdjustDto,
+    @CurrentStaff() staff: StaffSession,
+  ) {
+    return this.service.adjust(serial, staff, dto.stamps, dto.note);
   }
 }

@@ -185,6 +185,7 @@ panel. Nunca de un campo del body.
 |---|---|---|---|
 | Sesión del equipo | `auth/` | funcional | [`modulo_auth`](features/modulo_auth.md) |
 | Equipo (dueño) | `staff/` | funcional | [`modulo_equipo`](features/modulo_equipo.md) |
+| Clientes (dueño) | `customers/` | funcional | [`modulo_clientes`](features/modulo_clientes.md) |
 | Inscripción pública | `public/` | funcional | [`modulo_inscripcion`](features/modulo_inscripcion.md) |
 | Sellos y canjes (caja) | `passes/` | funcional | [`modulo_sellos`](features/modulo_sellos.md) |
 | Wallet | `wallet/` | funcional con credenciales; 501 sin ellas. Sin probar en teléfonos | [`modulo_wallet`](features/modulo_wallet.md) |
@@ -211,6 +212,9 @@ Todos bajo el prefijo `/api`.
 | GET | `/passes/:serial` | caja, con sesión |
 | POST | `/passes/:serial/stamp` | caja, con sesión |
 | POST | `/passes/:serial/redeem` | caja, con sesión |
+| POST | `/passes/:serial/adjust` | panel, dueño |
+| POST | `/customers/search` | panel, dueño |
+| GET | `/customers/:id` | panel, dueño |
 | GET | `/wallet/apple/:serial` | el celular del cliente |
 | GET | `/wallet/google/:serial` | el celular del cliente |
 | varios | `/wallet/apple/v1/…` | Apple Wallet, por su cuenta |
@@ -231,7 +235,6 @@ modelo, no para implementarlo sin que se pida.
 - **Mensajes directos al celular** de los clientes, a todos o a un grupo.
 - **Cupones con fecha de vencimiento**, incluidos los de cumpleaños (por eso la
   inscripción ya pide `birthDate`).
-- **Ajuste manual de sellos** desde el panel (el tipo `ADJUST` ya existe).
 
 ---
 

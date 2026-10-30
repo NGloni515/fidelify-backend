@@ -1,8 +1,9 @@
 # Módulo Sellos y canjes (caja)
 
 Lo que usa la pantalla de caja del panel: buscar una tarjeta, darle sellos y
-canjear un premio. Su contraparte es
-`fidelify-backoffice/agent/features/modulo_caja.md`.
+canjear un premio. Y el ajuste manual que hace el dueño desde la ficha de un
+cliente. Sus contrapartes son `fidelify-backoffice/agent/features/modulo_caja.md`
+y `modulo_clientes.md`.
 
 ---
 
@@ -15,6 +16,7 @@ canjear un premio. Su contraparte es
 | `src/passes/passes.service.ts` | Lee la tarjeta, aplica la regla, guarda saldo y movimiento |
 | `src/passes/passes.controller.ts` | Rutas, todas detrás de `StaffAuthGuard` |
 | `src/passes/dto/stamp.dto.ts` | Validación de `count` |
+| `src/passes/dto/adjust.dto.ts` | Validación del ajuste |
 | `src/common/serial.ts` | Genera `serialNumber` y `authToken` |
 | `test/passes.e2e-spec.ts` | Sesión, aislamiento entre negocios, concurrencia |
 
@@ -43,7 +45,8 @@ del negocio de quien pregunta**. La tarjeta de otro negocio responde 404
 "Tarjeta no encontrada", exactamente igual que un código que no existe: quien
 escanea no se entera de que ese código es válido en otro lado.
 
-Hoy dueño y cajera pueden lo mismo.
+Buscar, dar sellos y canjear lo pueden el dueño y la cajera. **Ajustar, solo
+el dueño** (`OwnerGuard`): a la cajera le responde 403.
 
 ### Dar sellos — `applyStamp(balance, rewardsReady, stampsRequired, count)`
 
@@ -70,10 +73,41 @@ Rechaza `stampsRequired < 1` y `count < 1`.
 Descuenta **un** premio. No toca `balance`. Si `rewardsReady` es 0, falla con
 "No hay premios disponibles para canjear", que el servicio devuelve como 400.
 
+### Ajustar — `applyAdjust(balance, rewardsReady, stampsRequired, stamps)`
+
+Suma o quita sellos para corregir un error de la caja. Trabaja sobre **todos**
+los sellos que tiene la tarjeta, contando los que están dentro de premios sin
+canjear:
+
+```
+held  = rewardsReady * stampsRequired + balance
+total = held + stamps            (stamps puede ser negativo)
+balance      = total % stampsRequired
+rewardsReady = floor(total / stampsRequired)
+rewardEarned = rewardsReady nuevo > rewardsReady anterior
+```
+
+Sumar es lo mismo que dar sellos en la caja. Quitar es su inverso exacto: si
+el sello que se quita fue el que completó la tarjeta, **el premio se va con
+él**. Un premio ya canjeado no se toca.
+
+| Antes (`balance`, `rewardsReady`) | `stampsRequired` | `stamps` | Después |
+|---|---|---|---|
+| 3, 0 | 8 | +2 | 5, 0 |
+| 0, 1 | 8 | −1 | 7, 0 |
+| 2, 1 | 8 | −10 | 0, 0 |
+| 2, 1 | 8 | −11 | 400 "A esta tarjeta solo se le pueden quitar 10 sellos" |
+
+Rechaza `stamps = 0`. Lleva siempre un motivo (`note`), que queda en el
+movimiento.
+
 ### Límites del request
 
 `count` es opcional (1 por defecto, también si no viene body), entero, entre 1
 y 20.
+
+En el ajuste, `stamps` es entero, entre −20 y 20 y distinto de 0, y `note`
+tiene entre 3 y 200 caracteres.
 
 ### Tarjeta anulada
 
@@ -90,9 +124,12 @@ que actualiza el saldo:
 |---|---|---|
 | Dar `count` sellos | `STAMP` | `count` |
 | Canjear un premio | `REDEEM` | `-1` |
+| Ajustar | `ADJUST` | `stamps`, con su signo, y el motivo en `note` |
 
-`amount` no está en la misma unidad en los dos casos: en `STAMP` son sellos, en
-`REDEEM` son premios.
+`amount` no está en la misma unidad en todos los casos: en `STAMP` y `ADJUST`
+son sellos, en `REDEEM` son premios. Con eso el saldo se reconstruye desde los
+movimientos: `total = Σ STAMP + Σ ADJUST`, `balance = total % stampsRequired`,
+`rewardsReady = floor(total / stampsRequired) − cantidad de REDEEM`.
 
 Cada movimiento guarda **quién lo hizo** (`staffId`) y **en qué local**
 (`branchId`, el del usuario que tiene la sesión).
@@ -161,6 +198,11 @@ Body: `{ "count": 1 }` (opcional).
 
 Sin body. Misma respuesta, sin `rewardEarned`.
 
+### `POST /passes/:serial/adjust`
+
+Solo el dueño. Body: `{ "stamps": -1, "note": "Sello de más" }`. Misma
+respuesta que `stamp`, con `rewardEarned`.
+
 ### Errores
 
 | Caso | Respuesta |
@@ -169,6 +211,9 @@ Sin body. Misma respuesta, sin `rewardEarned`.
 | Código inexistente, tarjeta anulada o tarjeta de otro negocio | 404 "Tarjeta no encontrada" |
 | Canjear sin premios | 400 "No hay premios disponibles para canjear" |
 | `count` fuera de 1–20 o no entero | 400, con el motivo en español |
+| Ajuste de cajera | 403 "Solo el dueño del negocio puede hacer esto" |
+| Ajuste que quita más sellos de los que hay | 400 "A esta tarjeta solo se le pueden quitar N sellos" |
+| Ajuste sin motivo, de 0 o fuera de ±20 | 400, con el motivo en español |
 | Tres choques seguidos con otra caja | 409 |
 
 ---
@@ -190,5 +235,5 @@ texto escaneado directamente como serial.
   el valor vigente al momento de cada sello. Si el negocio pasa de 8 a 6, una
   tarjeta con 7 sellos queda con un `balance` mayor que el nuevo tope hasta su
   próximo sello, y el saldo deja de poder reconstruirse desde los movimientos.
-- **`ADJUST`.** El tipo existe; ningún endpoint lo usa.
-- **Deshacer.** Un sello dado por error no tiene vuelta atrás.
+- **Deshacer desde la caja.** Un sello dado por error lo corrige el dueño con
+  un ajuste; la cajera no puede.

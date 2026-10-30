@@ -39,8 +39,8 @@ carpeta que agrupa los repos (`../design-system.md`).
 - @agent/ai-interaction.md
 
 Detalle por módulo en `agent/features/`:
-`modulo_auth.md`, `modulo_equipo.md`, `modulo_inscripcion.md`,
-`modulo_sellos.md`, `modulo_wallet.md`.
+`modulo_auth.md`, `modulo_clientes.md`, `modulo_equipo.md`,
+`modulo_inscripcion.md`, `modulo_sellos.md`, `modulo_wallet.md`.
 
 ## Comandos
 
@@ -139,7 +139,8 @@ src/app.setup.ts       prefijo /api, ValidationPipe y CORS
 src/auth/              login del equipo, sesión, límite de intentos y guards
 src/staff/             equipo: el dueño administra a sus cajeras
 src/public/            inscripción desde la página pública
-src/passes/            sellos y canjes (caja)
+src/passes/            sellos y canjes (caja), y el ajuste del dueño
+src/customers/         clientes: lista, búsqueda y ficha, para el dueño
 src/wallet/            tarjeta en Apple Wallet y Google Wallet, y su actualización
 secrets/               certificados y llaves de Wallet en local; ignorado por git
 src/prisma/            PrismaService, módulo global
