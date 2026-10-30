@@ -23,7 +23,6 @@ Lo que hoy impide desplegar esto de cara a un negocio real:
 - **Wallet nunca se probó con credenciales reales.** El código está completo y
   cubierto con llaves de prueba, pero ninguna tarjeta se ha instalado en un
   teléfono. Ver `agent/features/modulo_wallet.md`.
-- **El login no limita los intentos.** Ver `agent/features/modulo_auth.md`.
 
 ## Design system
 
@@ -40,8 +39,8 @@ carpeta que agrupa los repos (`../design-system.md`).
 - @agent/ai-interaction.md
 
 Detalle por módulo en `agent/features/`:
-`modulo_auth.md`, `modulo_inscripcion.md`, `modulo_sellos.md`,
-`modulo_wallet.md`.
+`modulo_auth.md`, `modulo_equipo.md`, `modulo_inscripcion.md`,
+`modulo_sellos.md`, `modulo_wallet.md`.
 
 ## Comandos
 
@@ -63,6 +62,7 @@ npm run db:seed        # crea "Heladería Demo" con una dueña y una cajera
 npm run db:studio
 
 npm run business:create -- --name … --slug …   # da de alta un negocio real
+npm run staff:reset-password -- --email …       # contraseña temporal, para soporte
 DEMO_PASSWORD=… npm run demo:reset               # borra y rehace la demo
 ```
 
@@ -132,10 +132,12 @@ prisma/schema.prisma   modelo de datos
 prisma/migrations/     migraciones; se commitean
 prisma/seed.ts         negocio de ejemplo con su equipo, para desarrollo
 prisma/create-business.ts  alta de un negocio real con su dueño
+prisma/reset-password.ts   contraseña temporal para un usuario que olvidó la suya
 prisma/demo-data.ts    la demo completa: negocio, equipo, clientes y tarjetas
 prisma/demo.ts         CLI de la demo (npm run demo:reset)
 src/app.setup.ts       prefijo /api, ValidationPipe y CORS
-src/auth/              login del equipo, sesión y guard
+src/auth/              login del equipo, sesión, límite de intentos y guards
+src/staff/             equipo: el dueño administra a sus cajeras
 src/public/            inscripción desde la página pública
 src/passes/            sellos y canjes (caja)
 src/wallet/            tarjeta en Apple Wallet y Google Wallet, y su actualización
@@ -180,8 +182,8 @@ el `Dockerfile` de la raíz, contra una base **Neon**. Hoy en
 - **Dos URLs de base.** `DATABASE_URL` es la del *pooler* de Neon y la usa la
   app. `DIRECT_URL` es la conexión directa y la usa solo la CLI de Prisma
   (`prisma.config.ts`): las migraciones no funcionan bien a través del pooler.
-- La imagen **no lleva `src/`**: `npm run business:create` y el seed no corren
-  dentro del contenedor. El alta de un negocio se hace desde una máquina de
+- La imagen **no lleva `src/`**: `npm run business:create`,
+  `staff:reset-password` y el seed no corren dentro del contenedor. El alta de un negocio se hace desde una máquina de
   desarrollo, con `DATABASE_URL` apuntando a la base de producción.
 - Los secretos de Wallet van en **base64**
   (`base64 -i secrets/apple/pass.pem | pbcopy`), nunca como archivo.
@@ -213,6 +215,8 @@ tienen códigos fijos (`FL-DEMO-CAMILA`, `FL-DEMO-LUIS`…).
   actualizarse en el celular. Los demás negocios no se tocan (cubierto en
   `test/demo.e2e-spec.ts`).
 - **El `slug` `demo` está reservado.** Ningún negocio real puede usarlo.
+- Quien tenga la contraseña de la demo puede cambiarla en Mi cuenta o
+  desactivar a la cajera, y dejar afuera a los demás. Reiniciarla lo arregla.
 - En producción se reinicia desde GitHub: pestaña **Actions → Reiniciar demo →
   Run workflow** (`.github/workflows/demo-reset.yml`). Usa los secretos del
   repo `DEMO_DATABASE_URL` (la conexión directa de Neon) y `DEMO_PASSWORD`. Se

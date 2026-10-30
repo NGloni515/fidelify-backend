@@ -12,19 +12,23 @@ Quién está usando el panel y de qué negocio es. Su contraparte es
 | `src/auth/auth.controller.ts` | Rutas bajo `/auth` y la cookie de refresh |
 | `src/auth/auth.service.ts` | Valida credenciales, emite y verifica tokens |
 | `src/auth/password.ts` | Hash y verificación de contraseñas (`scrypt`) |
+| `src/auth/attempt-limiter.ts` | Límite de intentos con contraseña, en memoria |
 | `src/auth/staff-auth.guard.ts` | `StaffAuthGuard`: exige sesión en una ruta |
+| `src/auth/owner.guard.ts` | `OwnerGuard`: además, exige que sea el dueño |
 | `src/auth/current-staff.decorator.ts` | `@CurrentStaff()`: la sesión dentro del controlador |
 | `src/auth/staff-session.ts` | El tipo `StaffSession` |
 | `src/auth/dto/login.dto.ts` | Validación del login |
+| `src/auth/dto/change-password.dto.ts` | Validación del cambio de contraseña |
 
 ---
 
 ## Quién inicia sesión
 
 Un `StaffUser`: el dueño (`OWNER`) o quien atiende la caja (`CASHIER`) de **un**
-negocio. No hay registro público ni recuperación de contraseña. El dueño se
-crea al dar de alta el negocio (`npm run business:create`), que imprime una
-contraseña temporal una sola vez; el seed crea el equipo de desarrollo.
+negocio. No hay registro público. El dueño se crea al dar de alta el negocio
+(`npm run business:create`), que imprime una contraseña temporal una sola vez;
+las cajeras las agrega el dueño desde el panel (ver
+[`modulo_equipo`](modulo_equipo.md)); el seed crea el equipo de desarrollo.
 
 El correo se guarda y se compara **en minúsculas**.
 
@@ -116,6 +120,16 @@ Sin body. Borra la cookie. 204.
 
 Con `Authorization`. Devuelve el `user`.
 
+### `POST /password`
+
+Con `Authorization`. Body: `{ "currentPassword": "…", "newPassword": "…" }`.
+204. Es la única forma de cambiar la contraseña propia, dueño o cajera, y pide
+la actual aunque haya sesión: un panel olvidado abierto no basta para quedarse
+con la cuenta.
+
+Las sesiones que ya estaban abiertas siguen valiendo: no hay tabla de sesiones
+que cerrar.
+
 ### Errores
 
 | Caso | Respuesta |
@@ -123,10 +137,50 @@ Con `Authorization`. Devuelve el `user`.
 | Correo desconocido, contraseña incorrecta, usuario inactivo o negocio inactivo | 401 "Correo o contraseña incorrectos" |
 | Ruta protegida sin `Authorization` | 401 "Inicia sesión para continuar" |
 | Token vencido o inválido, sin cookie, o usuario desactivado | 401 "Tu sesión venció. Vuelve a entrar." |
+| Contraseña actual incorrecta al cambiarla | 400 "Tu contraseña actual no es correcta" |
+| Contraseña nueva de menos de 8 caracteres | 400 "La contraseña debe tener al menos 8 caracteres" |
+| Límite de intentos alcanzado | 429 "Demasiados intentos. Vuelve a intentar en N minutos." |
 
 Los cuatro motivos de un login fallido **no se distinguen**, ni por el mensaje
 ni por el tiempo de respuesta: cuando el correo no existe igual se verifica una
 contraseña contra un hash de relleno.
+
+---
+
+## Límite de intentos
+
+**5 intentos con contraseña por correo cada 15 minutos.** El sexto responde 429,
+aunque traiga la contraseña correcta, hasta que pasen los 15 minutos contados
+desde el primero. Un login exitoso, o un cambio de contraseña con la actual
+correcta, devuelve los intentos.
+
+- **Se cuenta por correo, no por IP.** El panel le habla a esta API a través
+  de su proxy en Cloudflare: todos los logins que vienen del panel llegan
+  desde las mismas pocas direcciones, y un límite por IP sería un límite para
+  todos los negocios a la vez.
+- **Un correo que no existe se bloquea igual**, para que el límite no revele
+  qué correos tienen cuenta.
+- **El intento se cuenta antes de verificar la contraseña.** Contar después de
+  fallar dejaría pasar una ráfaga de peticiones en paralelo antes de que la
+  primera termine.
+- **Login y cambio de contraseña comparten el contador.** Si no, quien tenga
+  una sesión robada podría probar contraseñas por `POST /password` sin freno.
+- **Vive en memoria.** Reiniciar la app devuelve los intentos, y con más de una
+  réplica cada una llevaría su propia cuenta. Hoy corre una sola.
+- La contracara: cualquiera que conozca un correo puede bloquearlo 15 minutos.
+  A la tablet de la caja no le afecta, porque su sesión dura 30 días y no
+  vuelve a pedir la contraseña.
+
+---
+
+## Roles
+
+`OWNER` y `CASHIER`. Una ruta solo para el dueño lleva
+`@UseGuards(StaffAuthGuard, OwnerGuard)`, en ese orden: `OwnerGuard` lee el
+`request.staff` que deja el primero. A una cajera le responde 403 "Solo el
+dueño del negocio puede hacer esto".
+
+Hoy solo Equipo es exclusiva del dueño. La caja la usan los dos.
 
 ---
 
@@ -136,6 +190,10 @@ contraseña contra un hash de relleno.
 contraseña. Se guarda como
 `scrypt$<log2 N>$<r>$<p>$<sal>$<hash>`: los parámetros viajan con el hash para
 poder subirlos sin invalidar las contraseñas existentes.
+
+Una contraseña nueva tiene entre 8 y 200 caracteres (`IsNewPassword`), venga del
+cambio propio o del dueño para una cajera. Las que imprimen
+`business:create` y `staff:reset-password` son de 16 caracteres al azar.
 
 ---
 
@@ -160,9 +218,10 @@ nunca del body ni de la URL.
 
 ## Sin resolver
 
-- **Límite de intentos.** El login no frena a quien prueba contraseñas.
-- **Roles.** `role` llega en la sesión, pero ninguna ruta distingue todavía al
-  dueño de la cajera.
-- **Alta y gestión del equipo.** No hay endpoint para crear usuarios, cambiar
-  una contraseña ni recuperarla.
-- **Revocar una sesión** sin desactivar al usuario.
+- **Recuperar la contraseña por correo.** Hoy lo hace soporte con
+  `npm run staff:reset-password` (ver [`modulo_equipo`](modulo_equipo.md)).
+- **Revocar una sesión** sin desactivar al usuario. Por lo mismo, cambiar la
+  contraseña no cierra las sesiones abiertas.
+- **Límite por IP**, contra quien prueba muchas cuentas a la vez. Exige que el
+  proxy del panel le pase al backend la IP real de forma que no se pueda
+  falsificar llamando directo a la API.

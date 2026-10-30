@@ -26,6 +26,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "business:create": "tsx prisma/create-business.ts",
+    "staff:reset-password": "tsx prisma/reset-password.ts",
     "demo:reset": "tsx prisma/demo.ts"
   },
   "dependencies": {

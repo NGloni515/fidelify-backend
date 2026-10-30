@@ -65,6 +65,12 @@ la función y guarda. El modelo es `src/passes/stamp-rules.ts`.
   quien pregunta no tiene por qué enterarse de que ese id existe en otro lado.
 - `findFirst` con el filtro de negocio, no `findUnique` solo por id o por serial.
 
+## Roles
+
+- Una ruta solo para el dueño lleva `@UseGuards(StaffAuthGuard, OwnerGuard)`,
+  en ese orden. Ocultarla en el panel no protege nada.
+- El rol de un usuario nunca sale del body. Lo fija el servicio.
+
 ## Saldo y movimientos
 
 - El saldo de un `Pass` se cambia **solo** a través del patrón de
@@ -181,9 +187,8 @@ se abren PRs masivos de limpieza.
 
 | Qué | Dónde |
 |---|---|
-| Comentarios en español y docstrings que narran | `src/public/`, `src/common/`, `src/config/`, `src/passes/stamp-rules.ts`, `prisma/schema.prisma` |
-| `Branch`, `StaffUser`, `Customer` y `Coupon` se editan y no tienen `updatedAt` | `prisma/schema.prisma` |
-| El comentario de `Transaction.amount` dice "-8 al canjear"; el código guarda `-1` | `prisma/schema.prisma` |
+| Comentarios en español y docstrings que narran | `src/public/`, `src/common/`, `src/config/`, `src/passes/stamp-rules.ts` |
+| `Branch`, `Customer` y `Coupon` se editan y no tienen `updatedAt` | `prisma/schema.prisma` |
 | `name` y `email` responden con el mensaje en inglés de `class-validator` | `src/public/join.dto.ts` |
 
 ## Documentación de agente
