@@ -39,7 +39,7 @@ carpeta que agrupa los repos (`../design-system.md`).
 - @agent/ai-interaction.md
 
 Detalle por módulo en `agent/features/`:
-`modulo_auth.md`, `modulo_clientes.md`, `modulo_equipo.md`,
+`modulo_auth.md`, `modulo_clientes.md`, `modulo_equipo.md`, `modulo_inicio.md`,
 `modulo_inscripcion.md`, `modulo_sellos.md`, `modulo_wallet.md`.
 
 ## Comandos
@@ -141,6 +141,7 @@ src/staff/             equipo: el dueño administra a sus cajeras
 src/public/            inscripción desde la página pública
 src/passes/            sellos y canjes (caja), y el ajuste del dueño
 src/customers/         clientes: lista, búsqueda y ficha, para el dueño
+src/dashboard/         inicio del dueño: conteos, quiénes vienen más y quiénes dejaron de venir
 src/wallet/            tarjeta en Apple Wallet y Google Wallet, y su actualización
 secrets/               certificados y llaves de Wallet en local; ignorado por git
 src/prisma/            PrismaService, módulo global
@@ -206,8 +207,9 @@ docker run --rm -p 3100:3000 --env-file <archivo-con-variables> fidelify-backend
 
 Un negocio de muestra que vive en producción para enseñar el producto:
 **Heladería Demo** (`slug` `demo`), con dueña (`demo@fidelifyec.com`), cajera
-(`demo-caja@fidelifyec.com`) y seis clientes con historial, cuyas tarjetas
-tienen códigos fijos (`FL-DEMO-CAMILA`, `FL-DEMO-LUIS`…).
+(`demo-caja@fidelifyec.com`) y siete clientes con historial, cuyas tarjetas
+tienen códigos fijos (`FL-DEMO-CAMILA`, `FL-DEMO-LUIS`…). Uno, Pedro, dejó de
+venir hace más de 30 días, para que el Inicio tenga a quién mostrar.
 
 - **Se arma en código**, en `prisma/demo-data.ts`. Cuando una funcionalidad
   nueva necesite datos para lucirse en la demo, se agregan ahí.

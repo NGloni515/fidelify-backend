@@ -44,6 +44,7 @@ describe('Demo (e2e)', () => {
       'FL-DEMO-ANDRES',
       'FL-DEMO-DANIELA',
       'FL-DEMO-JORGE',
+      'FL-DEMO-PEDRO',
     ]);
     const owner = await login(DEMO_OWNER_EMAIL).expect(200);
     const cashier = await login(DEMO_CASHIER_EMAIL).expect(200);
@@ -57,13 +58,28 @@ describe('Demo (e2e)', () => {
     expect(card.body).toMatchObject({ balance: 1, rewardsReady: 1 });
   });
 
+  it("gives the owner's home someone who stopped coming", async () => {
+    await reset();
+    const owner = await login(DEMO_OWNER_EMAIL).expect(200);
+
+    const home = await request(app.getHttpServer())
+      .get('/api/dashboard')
+      .set('Authorization', `Bearer ${owner.body.accessToken}`)
+      .expect(200);
+
+    expect(home.body.lapsedCustomers).toEqual([
+      expect.objectContaining({ name: 'Pedro Cevallos' }),
+    ]);
+    expect(home.body.topCustomers).toHaveLength(5);
+  });
+
   it('keeps every balance consistent with its movements', async () => {
     await reset();
 
     const passes = await prisma.pass.findMany({
       include: { transactions: true, program: true },
     });
-    expect(passes).toHaveLength(6);
+    expect(passes).toHaveLength(7);
     for (const pass of passes) {
       const stamps = pass.transactions
         .filter((t) => t.type === 'STAMP' || t.type === 'ADJUST')
@@ -87,7 +103,7 @@ describe('Demo (e2e)', () => {
     await reset();
 
     expect(await prisma.business.count({ where: { slug: 'demo' } })).toBe(1);
-    expect(await prisma.customer.count()).toBe(6);
+    expect(await prisma.customer.count()).toBe(7);
     expect(await prisma.staffUser.count()).toBe(2);
   });
 

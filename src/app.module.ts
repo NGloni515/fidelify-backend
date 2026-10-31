@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module.js';
 import { validateEnv } from './config/env.validation.js';
 import { CustomersModule } from './customers/customers.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 import { HealthController } from './health/health.controller.js';
 import { PassesModule } from './passes/passes.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -16,6 +17,7 @@ import { WalletModule } from './wallet/wallet.module.js';
     PrismaModule,
     AuthModule,
     CustomersModule,
+    DashboardModule,
     PublicModule,
     PassesModule,
     StaffModule,
