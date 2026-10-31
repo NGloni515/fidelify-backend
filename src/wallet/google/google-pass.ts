@@ -1,4 +1,9 @@
-import { rewardsText, stampsText, type WalletPass } from '../wallet-pass.js';
+import {
+  rewardsText,
+  stampsText,
+  VOIDED_TEXT,
+  type WalletPass,
+} from '../wallet-pass.js';
 
 const LANGUAGE = 'es';
 
@@ -34,9 +39,12 @@ export function buildGoogleClass(issuerId: string, pass: WalletPass) {
   };
 }
 
-// The part of the object that changes with every stamp; also the PATCH body.
-export function buildGoogleBalance(pass: WalletPass) {
+// The part of the object that can change once saved; also the PATCH body.
+// INACTIVE moves a voided card to the expired passes of the wallet.
+export function buildGoogleUpdate(pass: WalletPass) {
   return {
+    state: pass.voided ? 'INACTIVE' : 'ACTIVE',
+    header: localized(pass.customerName ?? VOIDED_TEXT),
     textModulesData: [
       { id: 'stamps', header: 'Sellos', body: stampsText(pass) },
       {
@@ -53,10 +61,8 @@ export function buildGoogleObject(issuerId: string, pass: WalletPass) {
   return {
     id: googleObjectId(issuerId, pass.id),
     classId: googleClassId(issuerId, pass.program.id),
-    state: 'ACTIVE',
     cardTitle: localized(pass.business.name),
     subheader: localized(pass.program.name),
-    header: localized(pass.customerName),
     hexBackgroundColor: pass.business.colors.background,
     ...(pass.business.logoUrl && {
       logo: {
@@ -69,6 +75,6 @@ export function buildGoogleObject(issuerId: string, pass: WalletPass) {
       value: pass.serialNumber,
       alternateText: pass.serialNumber,
     },
-    ...buildGoogleBalance(pass),
+    ...buildGoogleUpdate(pass),
   };
 }

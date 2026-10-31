@@ -1,7 +1,7 @@
 # Módulo Clientes
 
-El dueño ve a los clientes de su negocio: los busca, abre la ficha de uno y lee
-el historial de su tarjeta. Su contraparte es
+El dueño ve a los clientes de su negocio: los busca, abre la ficha de uno, lee
+el historial de su tarjeta y, si el cliente lo pide, borra sus datos. Su contraparte es
 `fidelify-backoffice/agent/features/modulo_clientes.md`.
 
 El ajuste manual de sellos que se hace desde la ficha vive con el resto de las
@@ -14,9 +14,9 @@ reglas de sellos, en [`modulo_sellos`](modulo_sellos.md).
 | Archivo | Qué |
 |---|---|
 | `src/customers/customers.controller.ts` | Rutas bajo `/customers`, detrás de `StaffAuthGuard` y `OwnerGuard` |
-| `src/customers/customers.service.ts` | Búsqueda paginada y ficha, acotadas al negocio de la sesión |
+| `src/customers/customers.service.ts` | Búsqueda paginada, ficha y borrado, acotados al negocio de la sesión |
 | `src/customers/dto/search-customers.dto.ts` | Validación de la búsqueda |
-| `test/customers.e2e-spec.ts` | Roles, búsqueda, páginas y aislamiento entre negocios |
+| `test/customers.e2e-spec.ts` | Roles, búsqueda, páginas, borrado y aislamiento entre negocios |
 
 ---
 
@@ -41,6 +41,32 @@ reglas de sellos, en [`modulo_sellos`](modulo_sellos.md).
   primero, con el nombre de quien los hizo.
 - **Nunca sale `authToken`**, ni `consentText`: de la evidencia de
   consentimiento la pantalla solo muestra la fecha.
+
+---
+
+## Borrar los datos de un cliente
+
+El texto de consentimiento que acepta cada cliente termina con "Puedo pedir que
+se eliminen en cualquier momento". Lo cumple `DELETE /customers/:id`, solo para
+el dueño: el cliente se lo pide al negocio, que es el dueño de los datos.
+
+- **Se borra la fila del `Customer`**: nombre, teléfono, correo, cumpleaños y
+  la evidencia de consentimiento. No queda una copia ni una marca de "borrado".
+- **Sus tarjetas se quedan, anuladas y sin dueño** (`status: VOIDED`,
+  `customerId: null`), con todos sus movimientos. Los movimientos nunca se
+  borran, y así el negocio no pierde los sellos que ya dio: siguen sumando en
+  el Inicio ([`modulo_inicio`](modulo_inicio.md)).
+- **La tarjeta se anula también en el celular**, con el mismo aviso que sigue a
+  un sello: Apple recibe un pase con `voided: true` y sin el nombre, y Google el
+  objeto en `INACTIVE` con "Tarjeta anulada" en lugar del nombre
+  ([`modulo_wallet`](modulo_wallet.md)).
+- Desde ahí la tarjeta no existe para la caja ("Tarjeta no encontrada") ni para
+  los enlaces de Wallet.
+- **El mismo teléfono puede volver a inscribirse**: entra como cliente nuevo,
+  con otra tarjeta en cero.
+- **No se puede deshacer.**
+- Las notas de los ajustes se quedan con su movimiento. Las escribe el dueño, y
+  no deberían llevar datos de contacto.
 
 ---
 
@@ -104,13 +130,17 @@ Body: `{ "query"?: "…", "page"?: 1 }`, los dos opcionales. 200.
 instante cualquier zona horaria detrás de UTC la mostraría un día antes.
 `staffName` es `null` si quien hizo el movimiento ya no existe.
 
+### `DELETE /:id`
+
+Sin body. 204, sin contenido.
+
 ### Errores
 
 | Caso | Respuesta |
 |---|---|
 | Sin sesión | 401 |
 | Quien pregunta es cajera | 403 "Solo el dueño del negocio puede hacer esto" |
-| Cliente de otro negocio, o que no existe | 404 "Cliente no encontrado" |
+| Cliente de otro negocio, que no existe o cuyos datos ya se borraron | 404 "Cliente no encontrado" |
 | Un campo que el DTO no declara | 400 |
 
 ---
@@ -121,5 +151,7 @@ instante cualquier zona horaria detrás de UTC la mostraría un día antes.
   Arreglarlo pide la extensión `unaccent` de Postgres.
 - **Ordenar por otra cosa que el nombre**, como la última visita. Hoy exigiría
   calcularla en la consulta o guardarla en el cliente.
-- **Editar o borrar un cliente**, incluido el derecho a pedir que se eliminen
-  sus datos que promete el texto de consentimiento.
+- **Editar un cliente**: corregir su nombre o su teléfono.
+- **Reintentar el aviso a Wallet.** Si Apple o Google no responden al borrar,
+  la tarjeta del celular sigue con el nombre: en Apple hasta que el teléfono
+  vuelva a consultar, en Google para siempre.

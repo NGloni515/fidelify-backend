@@ -75,11 +75,11 @@ export class DashboardService {
       period: { stamps: stampsInPeriod, rewardsRedeemed: redeemedInPeriod },
       rewardsPending: pending._sum.rewardsReady ?? 0,
       topCustomers: topVisitors(
-        visits.map((v) => ({
-          customerId: v.pass.customer.id,
-          name: v.pass.customer.name,
-          at: v.createdAt,
-        })),
+        visits.flatMap(({ createdAt, pass: { customer } }) =>
+          customer
+            ? [{ customerId: customer.id, name: customer.name, at: createdAt }]
+            : [],
+        ),
         TIME_ZONE,
         TOP_LIMIT,
       ),

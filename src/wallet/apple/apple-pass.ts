@@ -27,6 +27,7 @@ export function buildApplePassProps(
     backgroundColor: hexToRgb(colors.background),
     foregroundColor: hexToRgb(colors.foreground),
     labelColor: hexToRgb(colors.label),
+    ...(pass.voided && { voided: true }),
     ...(identity.webServiceURL && {
       webServiceURL: identity.webServiceURL,
       authenticationToken: pass.authToken,
@@ -49,7 +50,9 @@ export function buildApplePassFields(pass: WalletPass) {
       { key: 'reward', label: 'AL COMPLETAR', value: pass.program.rewardText },
     ],
     secondaryFields: [
-      { key: 'customer', label: 'CLIENTE', value: pass.customerName },
+      ...(pass.customerName
+        ? [{ key: 'customer', label: 'CLIENTE', value: pass.customerName }]
+        : []),
       {
         key: 'rewards',
         label: 'PREMIOS',

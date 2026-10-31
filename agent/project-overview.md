@@ -106,6 +106,9 @@ relación.
 `consentAt` y `consentText` son obligatorios: es la evidencia de consentimiento
 que exige la LOPDP. No se puede crear un cliente sin ellos.
 
+Cuando el cliente pide que se borren sus datos, se borra su fila; sus tarjetas
+quedan anuladas y sin dueño. Ver `modulo_clientes.md`.
+
 ### Pass — CRÍTICO
 
 La tarjeta de un cliente en un programa. Única por `(programId, customerId)`.
@@ -116,7 +119,8 @@ La tarjeta de un cliente en un programa. Única por `(programId, customerId)`.
 | `authToken` | secreto con el que Apple Wallet se autenticará contra esta API. **No debe salir en ninguna respuesta** |
 | `balance` | sellos acumulados hacia el próximo premio. Siempre entre `0` y `stampsRequired - 1` |
 | `rewardsReady` | premios ganados y todavía no canjeados |
-| `status` | `ACTIVE` \| `VOIDED`. Una tarjeta `VOIDED` no existe para la caja |
+| `status` | `ACTIVE` \| `VOIDED`. Una tarjeta `VOIDED` no existe para la caja. Se anula al borrar los datos de su cliente |
+| `customerId` | `null` solo en una tarjeta anulada cuyo cliente pidió borrar sus datos |
 | `platform` | dónde quedó guardada. Se marca `APPLE` cuando un iPhone registra la tarjeta |
 | `googleObjectId` | sin uso: el id en Google se deriva del id de la tarjeta |
 
@@ -216,6 +220,7 @@ Todos bajo el prefijo `/api`.
 | POST | `/passes/:serial/adjust` | panel, dueño |
 | POST | `/customers/search` | panel, dueño |
 | GET | `/customers/:id` | panel, dueño |
+| DELETE | `/customers/:id` | panel, dueño |
 | GET | `/dashboard` | panel, dueño |
 | GET | `/wallet/apple/:serial` | el celular del cliente |
 | GET | `/wallet/google/:serial` | el celular del cliente |

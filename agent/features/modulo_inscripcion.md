@@ -98,6 +98,10 @@ Un cliente es único por `(businessId, phone)`. Inscribirse otra vez con el mism
 teléfono **no crea nada**: devuelve la tarjeta que ya tenía, con su saldo. Es lo
 que permite recuperar la tarjeta al cambiar de celular.
 
+Si el cliente pidió borrar sus datos ([`modulo_clientes`](modulo_clientes.md)),
+su teléfono ya no está: inscribirse otra vez crea un cliente nuevo, con otra
+tarjeta en cero.
+
 La contracara: **quien conoce el teléfono de alguien obtiene el código de su
 tarjeta.** Por eso el código solo no basta para sumar sellos: la caja exige
 sesión.
@@ -133,7 +137,5 @@ Cambiarlo deja todos los letreros apuntando a un 404.
   no produzca dos clientes.
 - **Abuso.** No hay límite de intentos: cualquiera puede inscribir teléfonos
   ajenos o enumerar los códigos de las tarjetas existentes.
-- **Baja de datos.** El texto de consentimiento promete que el cliente puede
-  pedir que se eliminen sus datos; no existe todavía la forma de hacerlo.
 - **Cambio del texto de consentimiento.** Si `CONSENT_TEXT` cambia, los clientes
   ya inscritos conservan el anterior y no se les vuelve a pedir.

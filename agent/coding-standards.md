@@ -122,6 +122,10 @@ segundo `SET NULL` sobre la misma fila vuelve a validar `passId` cuando su
   sobrescriben.
 - La tarjeta en la billetera lleva el nombre del cliente y nada más: ni
   teléfono ni correo.
+- Borrar los datos de un cliente es borrar su `Customer`, no vaciar campos. Sus
+  tarjetas quedan anuladas y sin dueño, con sus movimientos
+  (`modulo_clientes.md`): toda consulta que pasa por `pass.customer` cuenta con
+  que sea `null`.
 
 ## Validación y errores
 

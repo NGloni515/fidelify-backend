@@ -78,6 +78,11 @@ Las dos plataformas muestran lo mismo, tomado de `WalletPass`:
 
 **Nunca lleva el teléfono ni el correo del cliente.**
 
+Una tarjeta anulada porque el cliente pidió borrar sus datos
+([`modulo_clientes`](modulo_clientes.md)) tampoco lleva su nombre: Apple la
+recibe con `voided: true`, y Google en `INACTIVE` (pasa a las tarjetas
+vencidas) con "Tarjeta anulada" de título.
+
 ---
 
 ## Google Wallet
@@ -98,7 +103,9 @@ la API al inscribir, y no queda nada creado por enlaces que nadie abrió.
 
 ### Actualizar
 
-Tras un sello o un canje, `PATCH …/genericobject/<id>` con los textos nuevos.
+Tras un sello, un canje o un borrado, `PATCH …/genericobject/<id>` con lo que
+puede cambiar: los textos del saldo, el título (el nombre del cliente) y el
+estado.
 
 - **404 es normal**: el cliente nunca guardó la tarjeta en Google. Se ignora.
 - Si completó la tarjeta, además `POST …/addMessage` con
@@ -146,6 +153,8 @@ Las rutas, los códigos de respuesta y la cabecera `Authorization: ApplePass
 <token>` **los define Apple**, no las convenciones de esta API.
 
 - Las que tocan una tarjeta exigen el `authToken` de **esa** tarjeta.
+- **Atienden también tarjetas anuladas**: es la forma en que el celular se
+  entera de que se anuló. Los dos enlaces de descarga, no.
 - `passesUpdatedSince` y `lastUpdated` son el `updatedAt` de la tarjeta en
   milisegundos.
 - **`webServiceURL` solo se incluye si `PUBLIC_API_URL` es `https://`.** Sin
@@ -159,7 +168,8 @@ Las rutas, los códigos de respuesta y la cabecera `Authorization: ApplePass
 ## El aviso tras un sello
 
 `PassesService` llama a `WalletNotifierService.passChanged()` después de guardar
-el sello o el canje.
+el sello o el canje, y `CustomersService` después de borrar los datos de un
+cliente.
 
 - **Nunca falla y nunca tarda más de 4 segundos.** El sello ya está guardado y
   hay una cajera esperando: si Google o Apple no responden, se registra el error
@@ -230,6 +240,7 @@ rechaza sin dar explicación.
 - **Los sellos son texto.** No hay una imagen con los círculos llenos.
 - **Cambios de marca.** Si el negocio cambia sus colores o su nombre, en Apple
   las tarjetas ya guardadas se enteran recién en su próximo sello; en Google no
-  se enteran, porque la actualización solo manda los textos del saldo.
+  se enteran, porque la actualización solo manda el saldo, el nombre y el
+  estado.
 - **Un botón por plataforma.** La página pública muestra los dos a cualquier
   celular.

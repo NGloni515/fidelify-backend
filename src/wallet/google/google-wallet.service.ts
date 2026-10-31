@@ -4,9 +4,9 @@ import { JwtService } from '@nestjs/jwt';
 import { readSecret } from '../secrets.js';
 import type { WalletPass } from '../wallet-pass.js';
 import {
-  buildGoogleBalance,
   buildGoogleClass,
   buildGoogleObject,
+  buildGoogleUpdate,
   googleObjectId,
 } from './google-pass.js';
 
@@ -69,7 +69,7 @@ export class GoogleWalletService {
     const patched = await this.call(
       'PATCH',
       objectUrl,
-      buildGoogleBalance(pass),
+      buildGoogleUpdate(pass),
     );
     // 404: the customer never saved the card to Google Wallet.
     if (patched.status === 404) return;

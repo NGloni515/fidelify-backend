@@ -90,7 +90,6 @@ export class AppleWebServiceController {
     const sinceMs = Number(since);
     const passes = await this.prisma.pass.findMany({
       where: {
-        status: 'ACTIVE',
         appleRegistrations: { some: { deviceLibraryId, passTypeIdentifier } },
         ...(since &&
           Number.isFinite(sinceMs) && { updatedAt: { gt: new Date(sinceMs) } }),
@@ -171,7 +170,7 @@ export class AppleWebServiceController {
     authorization: string | undefined,
   ): Promise<WalletPass> {
     this.requirePassType(passTypeIdentifier);
-    const pass = await this.passes.findBySerial(serial);
+    const pass = await this.passes.findIssuedBySerial(serial);
     const expected = Buffer.from(`ApplePass ${pass.authToken}`);
     const received = Buffer.from(authorization ?? '');
     if (

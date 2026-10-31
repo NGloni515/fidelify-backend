@@ -44,7 +44,10 @@ zona horaria propia: todos los negocios están en Ecuador.
   volvió después de inscribirse. Se listan 10, los que dejaron de venir hace
   menos primero: son los más fáciles de recuperar. `customers.lapsed` es el
   total.
-- Las tarjetas anuladas no cuentan, ni para visitas ni para premios.
+- Las tarjetas anuladas no cuentan para visitas ni para premios por canjear,
+  pero sus sellos y canjes siguen en `today` y `period`: pasaron. Por eso borrar
+  los datos de un cliente ([`modulo_clientes`](modulo_clientes.md)) le resta
+  uno a `customers.total` y no mueve los sellos.
 
 El panel no escribe "30" en ningún lado: lo lee de `periodDays`.
 
