@@ -9,6 +9,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { ApnsClient } from '../src/wallet/apple/apns-client.js';
 import {
   createBusiness,
+  createOwner,
   resetDatabase,
   STAFF_PASSWORD,
 } from './helpers/fixtures.js';
@@ -33,6 +34,7 @@ describe('Wallet (e2e)', () => {
   let workdir: string;
   let googlePublicKey: string;
   let token: string;
+  let ownerToken: string;
   const fetchMock = vi.fn();
   const apns = {
     statusFor: {} as Record<string, number>,
@@ -59,6 +61,10 @@ describe('Wallet (e2e)', () => {
       .post('/api/passes/FL-LESS/stamp')
       .set('Authorization', `Bearer ${token}`)
       .send({ count });
+  const erase = () =>
+    request(server())
+      .delete(`/api/customers/${less.customer.id}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
   const googleCalls = () =>
     fetchMock.mock.calls
       .map(([url, init]) => ({
@@ -132,6 +138,13 @@ describe('Wallet (e2e)', () => {
       .send({ email: less.cashier.email, password: STAFF_PASSWORD })
       .expect(200);
     token = login.body.accessToken;
+    const owner = await createOwner(prisma, less);
+    ownerToken = (
+      await request(server())
+        .post('/api/auth/login')
+        .send({ email: owner.email, password: STAFF_PASSWORD })
+        .expect(200)
+    ).body.accessToken;
 
     apns.pushes = [];
     apns.statusFor = {};
@@ -209,7 +222,25 @@ describe('Wallet (e2e)', () => {
       expect(patch.url).toBe(
         `https://walletobjects.googleapis.com/walletobjects/v1/genericobject/${ISSUER_ID}.fidelify_pass_${less.pass.id}`,
       );
+      expect(JSON.parse(patch.body)).toMatchObject({
+        state: 'ACTIVE',
+        header: { defaultValue: { value: 'Cliente less' } },
+      });
       expect(JSON.parse(patch.body).textModulesData[0].body).toBe('1 de 3');
+    });
+
+    it('expires the saved card, without the name, when the customer is erased', async () => {
+      await erase().expect(204);
+
+      const [patch, ...rest] = googleCalls();
+      expect(rest).toEqual([]);
+      expect(patch.method).toBe('PATCH');
+      expect(JSON.parse(patch.body)).toMatchObject({
+        state: 'INACTIVE',
+        header: { defaultValue: { value: 'Tarjeta anulada' } },
+      });
+      expect(patch.body).not.toContain('Cliente less');
+      await request(server()).get('/api/wallet/google/FL-LESS').expect(404);
     });
 
     it('notifies the customer when the card is completed', async () => {
@@ -275,6 +306,11 @@ describe('Wallet (e2e)', () => {
         message: 'FL-LESS',
         format: 'PKBarcodeFormatQR',
       });
+      expect(pass.storeCard.secondaryFields[0]).toMatchObject({
+        key: 'customer',
+        value: 'Cliente less',
+      });
+      expect(pass.voided).toBeUndefined();
       expect(JSON.stringify(pass)).not.toContain('0991234567');
       expect(readPass(res.body, 'manifest.json').length).toBeGreaterThan(0);
       expect(readPass(res.body, 'signature').length).toBeGreaterThan(0);
@@ -366,6 +402,33 @@ describe('Wallet (e2e)', () => {
       expect(apns.pushes).toEqual([
         { topic: PASS_TYPE_ID, pushTokens: ['push-token-1'] },
       ]);
+    });
+
+    it('voids the card in the phone, without the name, when the customer is erased', async () => {
+      const list = `/api/wallet/apple/v1/devices/device-1/registrations/${PASS_TYPE_ID}`;
+      await register().expect(201);
+      const before = await request(server()).get(list).expect(200);
+
+      await erase().expect(204);
+
+      expect(apns.pushes).toEqual([
+        { topic: PASS_TYPE_ID, pushTokens: ['push-token-1'] },
+      ]);
+      const changed = await request(server())
+        .get(list)
+        .query({ passesUpdatedSince: before.body.lastUpdated })
+        .expect(200);
+      expect(changed.body.serialNumbers).toEqual(['FL-LESS']);
+      const res = await request(server())
+        .get(`/api/wallet/apple/v1/passes/${PASS_TYPE_ID}/FL-LESS`)
+        .set('Authorization', applePass)
+        .buffer(true)
+        .parse(binary)
+        .expect(200);
+      const pass = JSON.parse(readPass(res.body, 'pass.json').toString());
+      expect(pass.voided).toBe(true);
+      expect(JSON.stringify(pass)).not.toContain('Cliente less');
+      await request(server()).get('/api/wallet/apple/FL-LESS').expect(404);
     });
 
     it('forgets a device Apple reports as gone', async () => {

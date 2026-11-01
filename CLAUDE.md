@@ -140,7 +140,7 @@ src/auth/              login del equipo, sesión, límite de intentos y guards
 src/staff/             equipo: el dueño administra a sus cajeras
 src/public/            inscripción desde la página pública
 src/passes/            sellos y canjes (caja), y el ajuste del dueño
-src/customers/         clientes: lista, búsqueda y ficha, para el dueño
+src/customers/         clientes: lista, búsqueda, ficha y borrado de datos, para el dueño
 src/dashboard/         inicio del dueño: conteos, quiénes vienen más y quiénes dejaron de venir
 src/wallet/            tarjeta en Apple Wallet y Google Wallet, y su actualización
 secrets/               certificados y llaves de Wallet en local; ignorado por git

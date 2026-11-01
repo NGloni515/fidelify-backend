@@ -126,7 +126,7 @@ model Customer {
 model Pass {
   id           String     @id @default(uuid())
   programId    String
-  customerId   String
+  customerId   String? // null once the customer's data is erased; the pass is then VOIDED
   serialNumber String     @unique // encoded in the pass QR
   authToken    String // Apple Wallet web service secret; never returned
   platform     Platform?
@@ -137,7 +137,7 @@ model Pass {
   updatedAt    DateTime   @updatedAt
 
   program            Program                   @relation(fields: [programId], references: [id], onDelete: Cascade)
-  customer           Customer                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer           Customer?                 @relation(fields: [customerId], references: [id], onDelete: Cascade)
   transactions       Transaction[]
   appleRegistrations AppleDeviceRegistration[]
   googleObjectId     String?                   @unique

@@ -11,7 +11,8 @@ export interface WalletPass {
   balance: number;
   rewardsReady: number;
   updatedAt: Date;
-  customerName: string;
+  voided: boolean;
+  customerName: string | null;
   program: {
     id: string;
     name: string;
@@ -49,6 +50,8 @@ export function hexToRgb(hex: string): string {
   const value = Number.parseInt(hex.slice(1), 16);
   return `rgb(${value >> 16}, ${(value >> 8) & 0xff}, ${value & 0xff})`;
 }
+
+export const VOIDED_TEXT = 'Tarjeta anulada';
 
 export function stampsText(pass: WalletPass): string {
   return `${pass.balance} de ${pass.program.stampsRequired}`;

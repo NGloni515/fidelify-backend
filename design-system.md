@@ -40,6 +40,9 @@ Reglas:
 - Si un color falta o no es un hex válido, se usa el de respaldo **solo para
   ese color** (`parseBrandColors`).
 - **La tarjeta lleva el nombre del cliente y nada más**: ni teléfono ni correo.
+- Una tarjeta anulada porque el cliente pidió borrar sus datos no lleva ni el
+  nombre. En Google, el título dice "Tarjeta anulada"; en Apple, la marca
+  anulada el propio iPhone.
 - Fidelify aparece una vez, al reverso: "Tarjeta digital por Fidelify".
 - Los textos de la tarjeta se escriben una sola vez, en
   `src/wallet/wallet-pass.ts`, y las dos plataformas dicen lo mismo.

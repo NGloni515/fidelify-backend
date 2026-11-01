@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { StaffSession } from '../auth/staff-session.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { WalletNotifierService } from '../wallet/wallet-notifier.service.js';
 import type { SearchCustomersDto } from './dto/search-customers.dto.js';
 
 export const PAGE_SIZE = 50;
@@ -66,7 +67,10 @@ const DETAIL_SELECT = {
 
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly wallet: WalletNotifierService,
+  ) {}
 
   async search(staff: StaffSession, dto: SearchCustomersDto) {
     const page = dto.page ?? 1;
@@ -122,6 +126,27 @@ export class CustomersService {
         })),
       })),
     };
+  }
+
+  // The cards and their movements stay, voided and with no customer: the
+  // ledger is never rewritten and the business keeps its numbers.
+  async erase(staff: StaffSession, id: string) {
+    const where = { id, businessId: staff.business.id };
+    const customer = await this.prisma.customer.findFirst({
+      where,
+      select: { passes: { select: { id: true } } },
+    });
+    if (!customer) throw new NotFoundException('Cliente no encontrado');
+    await this.prisma.$transaction([
+      this.prisma.pass.updateMany({
+        where: { customerId: id },
+        data: { status: 'VOIDED', customerId: null },
+      }),
+      this.prisma.customer.deleteMany({ where }),
+    ]);
+    await Promise.all(
+      customer.passes.map((pass) => this.wallet.passChanged(pass.id)),
+    );
   }
 
   private searchWhere(

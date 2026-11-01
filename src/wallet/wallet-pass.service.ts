@@ -9,6 +9,7 @@ const SELECT = {
   authToken: true,
   balance: true,
   rewardsReady: true,
+  status: true,
   updatedAt: true,
   customer: { select: { name: true } },
   program: {
@@ -26,23 +27,28 @@ const SELECT = {
 export class WalletPassService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findBySerial(serialNumber: string): Promise<WalletPass> {
-    const pass = await this.find({ serialNumber });
-    if (!pass) throw new NotFoundException('Tarjeta no encontrada');
-    return pass;
+  findBySerial(serialNumber: string): Promise<WalletPass> {
+    return this.require({ serialNumber, status: 'ACTIVE' });
+  }
+
+  // Voided too: a card already saved in a wallet has to learn it was voided.
+  findIssuedBySerial(serialNumber: string): Promise<WalletPass> {
+    return this.require({ serialNumber });
   }
 
   findById(id: string): Promise<WalletPass | null> {
     return this.find({ id });
   }
 
+  private async require(where: Prisma.PassWhereInput): Promise<WalletPass> {
+    const pass = await this.find(where);
+    if (!pass) throw new NotFoundException('Tarjeta no encontrada');
+    return pass;
+  }
+
   private async find(where: Prisma.PassWhereInput): Promise<WalletPass | null> {
     const pass = await this.prisma.pass.findFirst({
-      where: {
-        ...where,
-        status: 'ACTIVE',
-        program: { business: { active: true } },
-      },
+      where: { ...where, program: { business: { active: true } } },
       select: SELECT,
     });
     if (!pass) return null;
@@ -54,7 +60,8 @@ export class WalletPassService {
       balance: pass.balance,
       rewardsReady: pass.rewardsReady,
       updatedAt: pass.updatedAt,
-      customerName: pass.customer.name,
+      voided: pass.status === 'VOIDED',
+      customerName: pass.customer?.name ?? null,
       program,
       business: {
         name: business.name,

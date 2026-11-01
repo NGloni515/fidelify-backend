@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -30,5 +31,11 @@ export class CustomersController {
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentStaff() staff: StaffSession) {
     return this.service.findOne(staff, id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  erase(@Param('id') id: string, @CurrentStaff() staff: StaffSession) {
+    return this.service.erase(staff, id);
   }
 }
