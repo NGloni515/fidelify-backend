@@ -10,6 +10,7 @@ const SELECT = {
   balance: true,
   rewardsReady: true,
   status: true,
+  lastMessage: true,
   updatedAt: true,
   customer: { select: { name: true } },
   program: {
@@ -62,6 +63,7 @@ export class WalletPassService {
       updatedAt: pass.updatedAt,
       voided: pass.status === 'VOIDED',
       customerName: pass.customer?.name ?? null,
+      lastMessage: pass.lastMessage,
       program,
       business: {
         name: business.name,

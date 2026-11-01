@@ -65,6 +65,18 @@ describe('Wallet (e2e)', () => {
     request(server())
       .delete(`/api/customers/${less.customer.id}`)
       .set('Authorization', `Bearer ${ownerToken}`);
+  const sendMessage = (message = 'Hoy 2x1 en conos') =>
+    request(server())
+      .post('/api/notifications')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ message, audience: 'ALL' });
+  // Every object call answers 404: the card is in no Google Wallet.
+  const googleHasNoCard = () =>
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).includes('oauth2.googleapis.com')
+        ? Response.json({ access_token: 'google-token', expires_in: 3600 })
+        : new Response(null, { status: 404 }),
+    );
   const googleCalls = () =>
     fetchMock.mock.calls
       .map(([url, init]) => ({
@@ -256,12 +268,34 @@ describe('Wallet (e2e)', () => {
       });
     });
 
-    it('skips the message when the customer never saved the card', async () => {
-      fetchMock.mockImplementation(async (url: string) =>
-        String(url).includes('oauth2.googleapis.com')
-          ? Response.json({ access_token: 'google-token', expires_in: 3600 })
-          : new Response(null, { status: 404 }),
+    it('rings the saved card with a message from the owner', async () => {
+      const res = await sendMessage().expect(201);
+
+      const [message, ...rest] = googleCalls();
+      expect(rest).toEqual([]);
+      expect(message.method).toBe('POST');
+      expect(message.url).toBe(
+        `https://walletobjects.googleapis.com/walletobjects/v1/genericobject/${ISSUER_ID}.fidelify_pass_${less.pass.id}/addMessage`,
       );
+      expect(JSON.parse(message.body).message).toEqual({
+        id: `message-${res.body.id}`,
+        header: 'Negocio less',
+        body: 'Hoy 2x1 en conos',
+        messageType: 'TEXT_AND_NOTIFY',
+      });
+      expect(res.body.reached).toBe(1);
+    });
+
+    it('does not count a card that is in no Google Wallet', async () => {
+      googleHasNoCard();
+
+      const res = await sendMessage().expect(201);
+
+      expect(res.body.reached).toBe(0);
+    });
+
+    it('skips the message when the customer never saved the card', async () => {
+      googleHasNoCard();
 
       await stamp(3).expect(201);
 
@@ -429,6 +463,54 @@ describe('Wallet (e2e)', () => {
       expect(pass.voided).toBe(true);
       expect(JSON.stringify(pass)).not.toContain('Cliente less');
       await request(server()).get('/api/wallet/apple/FL-LESS').expect(404);
+    });
+
+    it('rings the phone with a message from the owner, and keeps it on the back', async () => {
+      const list = `/api/wallet/apple/v1/devices/device-1/registrations/${PASS_TYPE_ID}`;
+      const latest = () =>
+        request(server())
+          .get(`/api/wallet/apple/v1/passes/${PASS_TYPE_ID}/FL-LESS`)
+          .set('Authorization', applePass)
+          .buffer(true)
+          .parse(binary)
+          .expect(200);
+      const backMessage = (res: request.Response) =>
+        JSON.parse(readPass(res.body, 'pass.json').toString()).storeCard
+          .backFields[0];
+      await register().expect(201);
+      expect(backMessage(await latest())).toEqual({
+        key: 'message',
+        label: 'Mensajes',
+        value: 'Aquí verás los mensajes de Negocio less.',
+        changeMessage: '%@',
+      });
+      const before = await request(server()).get(list).expect(200);
+      // Whatever reached counts is Apple's.
+      googleHasNoCard();
+
+      const res = await sendMessage().expect(201);
+
+      expect(res.body.reached).toBe(1);
+      expect(apns.pushes).toEqual([
+        { topic: PASS_TYPE_ID, pushTokens: ['push-token-1'] },
+      ]);
+      const changed = await request(server())
+        .get(list)
+        .query({ passesUpdatedSince: before.body.lastUpdated })
+        .expect(200);
+      expect(changed.body.serialNumbers).toEqual(['FL-LESS']);
+      expect(backMessage(await latest()).value).toBe('Hoy 2x1 en conos');
+    });
+
+    it('does not count a phone that no longer has the card', async () => {
+      await register().expect(201);
+      apns.statusFor['push-token-1'] = 410;
+      googleHasNoCard();
+
+      const res = await sendMessage().expect(201);
+
+      expect(res.body.reached).toBe(0);
+      expect(await prisma.appleDeviceRegistration.count()).toBe(0);
     });
 
     it('forgets a device Apple reports as gone', async () => {

@@ -12,6 +12,7 @@ contraparte es `fidelify-backoffice/agent/features/modulo_inicio.md`.
 |---|---|
 | `src/dashboard/dashboard-rules.ts` | Reglas puras: el día local, la medianoche local y el ranking de visitas |
 | `src/dashboard/dashboard-rules.spec.ts` | Sus tests |
+| `src/dashboard/lapsed-customers.ts` | El periodo y quién dejó de venir. Mensajes usa la misma definición |
 | `src/dashboard/dashboard.service.ts` | Lee los conteos y arma el resumen |
 | `src/dashboard/dashboard.controller.ts` | `GET /dashboard`, detrás de `StaffAuthGuard` y `OwnerGuard` |
 | `test/dashboard.e2e-spec.ts` | Roles, números de un escenario armado a mano y aislamiento |

@@ -5,7 +5,8 @@
 - Conciso y directo. Explicar lo no obvio, no lo evidente.
 - Preguntar antes de refactors grandes o cambios de arquitectura.
 - No agregar features que nadie pidió. El schema ya tiene modelos sin usar
-  (`Coupon`, `Notification`): que existan no es una invitación a implementarlos.
+  (`Coupon`, `CouponRedemption`): que existan no es una invitación a
+  implementarlos.
 - Nunca borrar archivos sin confirmar.
 
 ## Flujo por cambio

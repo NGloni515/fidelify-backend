@@ -121,6 +121,7 @@ La tarjeta de un cliente en un programa. Única por `(programId, customerId)`.
 | `rewardsReady` | premios ganados y todavía no canjeados |
 | `status` | `ACTIVE` \| `VOIDED`. Una tarjeta `VOIDED` no existe para la caja. Se anula al borrar los datos de su cliente |
 | `customerId` | `null` solo en una tarjeta anulada cuyo cliente pidió borrar sus datos |
+| `lastMessage` | el último mensaje del dueño que recibió la tarjeta. Apple lo muestra al reverso |
 | `platform` | dónde quedó guardada. Se marca `APPLE` cuando un iPhone registra la tarjeta |
 | `googleObjectId` | sin uso: el id en Google se deriva del id de la tarjeta |
 
@@ -140,7 +141,14 @@ Un renglón por cada iPhone que guardó una tarjeta: a dónde mandarle el push
 cuando esa tarjeta cambia. Lo escribe y lo borra el propio Apple Wallet, a
 través del web service (ver `modulo_wallet.md`).
 
-### Coupon, CouponRedemption, Notification
+### Notification
+
+Un mensaje del dueño al celular de sus clientes: `message`, `audience` (`ALL` |
+`LAPSED` | `ONE_STAMP_LEFT`), `audienceSize` (clientes del grupo al enviarlo) y
+`reached` (cuántos lo recibieron en una billetera). Se insertan y no se editan,
+salvo `reached` al terminar el envío. Ver `modulo_mensajes.md`.
+
+### Coupon, CouponRedemption
 
 Existen en el schema y **ningún código los usa todavía**.
 
@@ -191,6 +199,7 @@ panel. Nunca de un campo del body.
 | Equipo (dueño) | `staff/` | funcional | [`modulo_equipo`](features/modulo_equipo.md) |
 | Clientes (dueño) | `customers/` | funcional | [`modulo_clientes`](features/modulo_clientes.md) |
 | Inicio (dueño) | `dashboard/` | funcional | [`modulo_inicio`](features/modulo_inicio.md) |
+| Mensajes (dueño) | `notifications/` | funcional; llega solo a tarjetas guardadas en una billetera | [`modulo_mensajes`](features/modulo_mensajes.md) |
 | Inscripción pública | `public/` | funcional | [`modulo_inscripcion`](features/modulo_inscripcion.md) |
 | Sellos y canjes (caja) | `passes/` | funcional | [`modulo_sellos`](features/modulo_sellos.md) |
 | Wallet | `wallet/` | funcional con credenciales; 501 sin ellas. Sin probar en teléfonos | [`modulo_wallet`](features/modulo_wallet.md) |
@@ -222,6 +231,8 @@ Todos bajo el prefijo `/api`.
 | GET | `/customers/:id` | panel, dueño |
 | DELETE | `/customers/:id` | panel, dueño |
 | GET | `/dashboard` | panel, dueño |
+| GET | `/notifications` | panel, dueño |
+| POST | `/notifications` | panel, dueño |
 | GET | `/wallet/apple/:serial` | el celular del cliente |
 | GET | `/wallet/google/:serial` | el celular del cliente |
 | varios | `/wallet/apple/v1/…` | Apple Wallet, por su cuenta |
@@ -237,7 +248,6 @@ modelo, no para implementarlo sin que se pida.
   (`npm run staff:reset-password`).
 - **Subir el logo del negocio**: la tarjeta ya lo muestra, pero hoy tiene que
   ser una URL pública puesta a mano.
-- **Mensajes directos al celular** de los clientes, a todos o a un grupo.
 - **Cupones con fecha de vencimiento**, incluidos los de cumpleaños (por eso la
   inscripción ya pide `birthDate`).
 
