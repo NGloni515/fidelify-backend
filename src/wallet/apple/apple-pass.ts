@@ -1,5 +1,6 @@
 import {
   hexToRgb,
+  messageText,
   rewardsText,
   stampsText,
   type WalletPass,
@@ -61,6 +62,14 @@ export function buildApplePassFields(pass: WalletPass) {
       },
     ],
     backFields: [
+      // Always present: iOS rings when a field's value changes, so the field has
+      // to be there before the first message.
+      {
+        key: 'message',
+        label: 'Mensajes',
+        value: messageText(pass),
+        changeMessage: '%@',
+      },
       {
         key: 'how',
         label: 'Cómo funciona',

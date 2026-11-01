@@ -13,6 +13,7 @@ export interface WalletPass {
   updatedAt: Date;
   voided: boolean;
   customerName: string | null;
+  lastMessage: string | null;
   program: {
     id: string;
     name: string;
@@ -20,6 +21,12 @@ export interface WalletPass {
     rewardText: string;
   };
   business: { name: string; logoUrl: string | null; colors: BrandColors };
+}
+
+export interface WalletMessage {
+  id: string;
+  header: string;
+  body: string;
 }
 
 // Fidelify's accent: the fallback for a business that has not set its colors.
@@ -55,6 +62,12 @@ export const VOIDED_TEXT = 'Tarjeta anulada';
 
 export function stampsText(pass: WalletPass): string {
   return `${pass.balance} de ${pass.program.stampsRequired}`;
+}
+
+export function messageText(pass: WalletPass): string {
+  return (
+    pass.lastMessage ?? `Aquí verás los mensajes de ${pass.business.name}.`
+  );
 }
 
 export function rewardsText(rewardsReady: number): string {

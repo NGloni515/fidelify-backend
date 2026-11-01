@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { readSecret } from '../secrets.js';
-import type { WalletPass } from '../wallet-pass.js';
+import type { WalletMessage, WalletPass } from '../wallet-pass.js';
 import {
   buildGoogleClass,
   buildGoogleObject,
@@ -14,6 +14,7 @@ const SAVE_URL = 'https://pay.google.com/gp/v/save';
 const API_URL = 'https://walletobjects.googleapis.com/walletobjects/v1';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SCOPE = 'https://www.googleapis.com/auth/wallet_object.issuer';
+const CALL_TIMEOUT_MS = 10_000;
 
 interface ServiceAccount {
   client_email: string;
@@ -26,6 +27,7 @@ export class GoogleWalletService {
   private readonly issuerId?: string;
   private readonly account?: ServiceAccount;
   private accessToken?: { value: string; expiresAt: number };
+  private tokenRequest?: Promise<string>;
 
   constructor(
     config: ConfigService,
@@ -77,18 +79,27 @@ export class GoogleWalletService {
       throw new Error(`Google Wallet PATCH failed with ${patched.status}`);
 
     if (!announcement) return;
-    const announced = await this.call('POST', `${objectUrl}/addMessage`, {
-      message: {
-        id: `reward-${pass.updatedAt.getTime()}`,
-        header: pass.business.name,
-        body: announcement,
-        messageType: 'TEXT_AND_NOTIFY',
-      },
+    await this.addMessage(pass.id, {
+      id: `reward-${pass.updatedAt.getTime()}`,
+      header: pass.business.name,
+      body: announcement,
     });
-    if (!announced.ok)
-      this.logger.warn(
-        `Google Wallet addMessage failed with ${announced.status}`,
-      );
+  }
+
+  // TEXT_AND_NOTIFY is what makes the phone ring. Returns whether the card
+  // took the message.
+  async addMessage(passId: string, message: WalletMessage): Promise<boolean> {
+    const { issuerId } = this.requireConfig();
+    const res = await this.call(
+      'POST',
+      `${API_URL}/genericobject/${googleObjectId(issuerId, passId)}/addMessage`,
+      { message: { ...message, messageType: 'TEXT_AND_NOTIFY' } },
+    );
+    if (res.ok) return true;
+    // 404: the customer never saved the card to Google Wallet.
+    if (res.status !== 404)
+      this.logger.warn(`Google Wallet addMessage failed with ${res.status}`);
+    return false;
   }
 
   private async call(method: string, url: string, body: unknown) {
@@ -99,13 +110,21 @@ export class GoogleWalletService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
     });
   }
 
   private async getAccessToken(): Promise<string> {
     if (this.accessToken && this.accessToken.expiresAt > Date.now())
       return this.accessToken.value;
+    // Shared, so the parallel calls of a message to many cards ask for one token.
+    this.tokenRequest ??= this.requestAccessToken().finally(() => {
+      this.tokenRequest = undefined;
+    });
+    return this.tokenRequest;
+  }
 
+  private async requestAccessToken(): Promise<string> {
     const { account } = this.requireConfig();
     const assertion = await this.jwt.signAsync(
       { iss: account.client_email, scope: SCOPE, aud: TOKEN_URL },

@@ -1,7 +1,7 @@
 # Módulo Wallet
 
-Entregar la tarjeta a la billetera del celular —Apple Wallet y Google Wallet— y
-mantenerla al día después de cada sello.
+Entregar la tarjeta a la billetera del celular —Apple Wallet y Google Wallet—,
+mantenerla al día después de cada sello y hacer llegar los mensajes del dueño.
 
 > **Los tests usan llaves de prueba**: firman con un certificado autofirmado y
 > una llave RSA generada al vuelo, y simulan a Google y a APNs. Con el
@@ -18,7 +18,7 @@ mantenerla al día después de cada sello.
 | `src/wallet/wallet.controller.ts` | Los dos enlaces que abre el cliente |
 | `src/wallet/wallet-pass.ts` | `WalletPass`: lo que la tarjeta muestra, y sus textos |
 | `src/wallet/wallet-pass.service.ts` | Carga un `WalletPass` de la base |
-| `src/wallet/wallet-notifier.service.ts` | Avisa a las dos billeteras tras un sello o un canje |
+| `src/wallet/wallet-notifier.service.ts` | Avisa a las dos billeteras tras un sello, un canje o un borrado, y reparte los mensajes del dueño |
 | `src/wallet/secrets.ts` | `readSecret()`: lee un certificado o una llave de una variable |
 | `src/wallet/google/google-pass.ts` | Arma la clase y el objeto de Google (puro) |
 | `src/wallet/google/google-wallet.service.ts` | Firma el enlace de guardado; actualiza por REST |
@@ -74,6 +74,7 @@ Las dos plataformas muestran lo mismo, tomado de `WalletPass`:
 | Sellos | "3 de 8" |
 | Premios | "Ninguno todavía" · "1 por canjear" · "2 por canjear" |
 | Al completar | `Program.rewardText` |
+| Mensajes (reverso de Apple) | `Pass.lastMessage`; sin mensajes, "Aquí verás los mensajes de …" |
 | Código QR | `Pass.serialNumber`, **solo**, sin URL |
 
 **Nunca lleva el teléfono ni el correo del cliente.**
@@ -111,6 +112,13 @@ estado.
 - Si completó la tarjeta, además `POST …/addMessage` con
   `messageType: TEXT_AND_NOTIFY`, que es lo que le hace sonar el celular.
 
+Un mensaje del dueño ([`modulo_mensajes`](modulo_mensajes.md)) es solo ese
+`addMessage`, con id `message-<id del mensaje>`, a cada tarjeta del grupo. Un
+404 quiere decir que esa tarjeta no está en Google y no cuenta como recibida.
+
+Cada llamada tiene 10 segundos de tope. El token se pide una sola vez aunque un
+mensaje lance varias llamadas a la vez.
+
 El token de acceso se pide con la cuenta de servicio y se guarda en memoria
 hasta un minuto antes de vencer.
 
@@ -125,10 +133,12 @@ Un pase `storeCard` firmado con `passkit-generator`.
 | Cabecera | Sellos |
 | Principal | Al completar |
 | Secundarios | Cliente · Premios |
-| Reverso | Cómo funciona · Código de la tarjeta · "Tarjeta digital por Fidelify" |
+| Reverso | Mensajes · Cómo funciona · Código de la tarjeta · "Tarjeta digital por Fidelify" |
 
-Sellos y premios llevan `changeMessage`: es el texto que iOS muestra en la
-pantalla bloqueada cuando ese valor cambia.
+Sellos, premios y mensajes llevan `changeMessage`: es el texto que iOS muestra
+en la pantalla bloqueada cuando ese valor cambia. En mensajes es el mensaje
+mismo (`%@`). El campo va siempre, con un texto de espera si todavía no hay
+mensajes: así el primero es un cambio de valor y suena.
 
 El ícono es obligatorio para Apple. Se usa uno de respaldo; el logo del negocio
 se baja de `Business.logoUrl` **solo si es PNG y responde en 3 segundos**. Un
@@ -176,6 +186,19 @@ cliente.
   y se sigue.
 - **Se espera, no se lanza en segundo plano.** En un hosting serverless el
   proceso puede congelarse apenas sale la respuesta, y el aviso se perdería.
+
+## Un mensaje a muchas tarjetas
+
+`NotificationsService` llama a `WalletNotifierService.broadcast()` con las
+tarjetas del grupo, después de guardar el mensaje en cada una.
+
+- **No tiene tope de tiempo total**: el dueño espera para saber a cuántos llegó.
+  Lo acotan los 10 segundos por llamada a Google.
+- **Nunca falla**: el mensaje ya está guardado. Lo que no llegó se registra y no
+  cuenta.
+- Devuelve las tarjetas que lo recibieron en al menos una billetera. En Apple,
+  las que tienen un iPhone que aceptó el push; un iPhone con varias de esas
+  tarjetas recibe un solo push.
 
 ---
 

@@ -100,6 +100,10 @@ la función y guarda. El modelo es `src/passes/stamp-rules.ts`.
 - Producción corre `prisma migrate deploy` antes de arrancar la app.
 - Todo modelo lleva `createdAt`. Los que se editan llevan además
   `updatedAt @updatedAt`.
+- **Una regla que cuenta filas antes de insertar** (el freno de mensajes) va en
+  una transacción `Serializable`, reintentada ante `P2034`. Con el aislamiento
+  por defecto, dos peticiones a la vez cuentan lo mismo y pasan las dos
+  (`NotificationsService.reserve`).
 
 ### Borrar un negocio
 

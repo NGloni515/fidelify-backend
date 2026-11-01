@@ -133,6 +133,7 @@ model Pass {
   balance      Int        @default(0) // stamps towards the next reward
   rewardsReady Int        @default(0) // earned and not yet redeemed
   status       PassStatus @default(ACTIVE)
+  lastMessage  String? // the latest message sent to this card; Apple shows it on the back
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -224,17 +225,24 @@ model AppleDeviceRegistration {
   @@unique([deviceLibraryId, passTypeIdentifier, passId])
 }
 
-// ---------- Sent notifications ----------
+// ---------- Messages to the customers' phones ----------
 
 model Notification {
-  id         String   @id @default(uuid())
-  businessId String
-  message    String
-  segment    String? // "all", "inactive", ...
-  sentCount  Int      @default(0)
-  createdAt  DateTime @default(now())
+  id           String               @id @default(uuid())
+  businessId   String
+  message      String
+  audience     NotificationAudience
+  audienceSize Int // customers in the audience when it was sent
+  reached      Int                  @default(0) // of those, whose card in a wallet took it
+  createdAt    DateTime             @default(now())
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  @@index([businessId])
+  @@index([businessId, createdAt])
+}
+
+enum NotificationAudience {
+  ALL
+  LAPSED
+  ONE_STAMP_LEFT
 }

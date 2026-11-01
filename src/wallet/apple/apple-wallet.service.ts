@@ -98,8 +98,11 @@ export class AppleWalletService {
     return pkpass.getAsBuffer();
   }
 
-  // Returns the push tokens Apple reported as gone, so the caller can forget them.
-  async notifyDevices(pushTokens: string[]): Promise<string[]> {
+  // `gone` are the tokens Apple reported as unregistered, so the caller can
+  // forget them.
+  async notifyDevices(
+    pushTokens: string[],
+  ): Promise<{ delivered: string[]; gone: string[] }> {
     const { identity, certificates } = this.requireConfig();
     const results = await this.apns.push(
       {
@@ -113,9 +116,11 @@ export class AppleWalletService {
     for (const { status } of results)
       if (status !== 200 && status !== APNS_UNREGISTERED)
         this.logger.warn(`APNs answered ${status}`);
-    return results
-      .filter(({ status }) => status === APNS_UNREGISTERED)
-      .map(({ pushToken }) => pushToken);
+    const withStatus = (wanted: number) =>
+      results
+        .filter(({ status }) => status === wanted)
+        .map(({ pushToken }) => pushToken);
+    return { delivered: withStatus(200), gone: withStatus(APNS_UNREGISTERED) };
   }
 
   // A broken or slow logo must not stop the customer from getting the card.

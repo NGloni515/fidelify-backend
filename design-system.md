@@ -30,6 +30,7 @@ celular y lo que el negocio muestra como suyo.
 | Sellos | `Pass.balance` de `Program.stampsRequired` |
 | Premio | `Program.rewardText` |
 | Código QR | `Pass.serialNumber`, solo, sin URL |
+| Mensajes (reverso, en Apple) | `Pass.lastMessage`, el último que le mandó el dueño |
 
 Reglas:
 
@@ -44,6 +45,9 @@ Reglas:
   nombre. En Google, el título dice "Tarjeta anulada"; en Apple, la marca
   anulada el propio iPhone.
 - Fidelify aparece una vez, al reverso: "Tarjeta digital por Fidelify".
+- **Los mensajes del dueño van tal como los escribió.** Mientras no haya
+  ninguno, el reverso dice "Aquí verás los mensajes de {negocio}.". En Google
+  el mensaje llega con el nombre del negocio de título.
 - Los textos de la tarjeta se escriben una sola vez, en
   `src/wallet/wallet-pass.ts`, y las dos plataformas dicen lo mismo.
 - `Program.design` es un Json sin forma definida. Antes de leerlo o escribirlo

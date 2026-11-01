@@ -2,14 +2,18 @@ import { Injectable } from '@nestjs/common';
 import type { StaffSession } from '../auth/staff-session.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { DAY_MS, startOfDay, topVisitors } from './dashboard-rules.js';
+import { startOfDay, topVisitors } from './dashboard-rules.js';
+import {
+  lapsedCustomerWhere,
+  PERIOD_DAYS,
+  periodStart,
+  VISIT_TYPES,
+} from './lapsed-customers.js';
 
 // Every business is in Ecuador and Business has no time zone of its own yet.
 const TIME_ZONE = 'America/Guayaquil';
-const PERIOD_DAYS = 30;
 const TOP_LIMIT = 5;
 const LAPSED_LIMIT = 10;
-const VISIT_TYPES: ('STAMP' | 'REDEEM')[] = ['STAMP', 'REDEEM'];
 
 @Injectable()
 export class DashboardService {
@@ -18,7 +22,7 @@ export class DashboardService {
   async summary(staff: StaffSession, now = new Date()) {
     const businessId = staff.business.id;
     const today = startOfDay(now, TIME_ZONE);
-    const since = new Date(now.getTime() - PERIOD_DAYS * DAY_MS);
+    const since = periodStart(now);
     const ofBusiness = {
       pass: { program: { businessId } },
     } satisfies Prisma.TransactionWhereInput;
@@ -95,23 +99,11 @@ export class DashboardService {
     return _sum.amount ?? 0;
   }
 
-  // Joined before the period and no stamp or redemption inside it. Sorted by
-  // when they were last seen, most recent first: the ones that just stopped
-  // coming are the easiest to win back.
+  // Sorted by when they were last seen, most recent first: the ones that just
+  // stopped coming are the easiest to win back.
   private async lapsedCustomers(businessId: string, since: Date) {
     const customers = await this.prisma.customer.findMany({
-      where: {
-        businessId,
-        createdAt: { lt: since },
-        passes: {
-          none: {
-            status: 'ACTIVE',
-            transactions: {
-              some: { type: { in: VISIT_TYPES }, createdAt: { gte: since } },
-            },
-          },
-        },
-      },
+      where: lapsedCustomerWhere(businessId, since),
       select: {
         id: true,
         name: true,

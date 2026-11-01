@@ -5,6 +5,7 @@ import { validateEnv } from './config/env.validation.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { HealthController } from './health/health.controller.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { PassesModule } from './passes/passes.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PublicModule } from './public/public.module.js';
@@ -18,6 +19,7 @@ import { WalletModule } from './wallet/wallet.module.js';
     AuthModule,
     CustomersModule,
     DashboardModule,
+    NotificationsModule,
     PublicModule,
     PassesModule,
     StaffModule,
